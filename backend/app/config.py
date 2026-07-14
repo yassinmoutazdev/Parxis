@@ -1,0 +1,60 @@
+"""Application configuration using pydantic-settings."""
+
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _parse_list(value: str) -> list[str]:
+    """Parse a comma-separated string into a list."""
+    return [item.strip() for item in value.split(",")]
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="PRAXIS_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Database settings
+    db_path: Path = Path("./data/praxis.db")
+
+    # Obsidian vault path
+    vault_path: Path = Path("./EnglishNotes")
+
+    # Backup settings
+    backup_dir: Path = Path("./data/backups")
+    backup_retention_daily: int = 14
+    backup_retention_monthly: int = 6
+
+    # Ollama settings
+    ollama_host: str = "http://localhost:11434"
+    ollama_model: str = "gemma4:31b"
+    ollama_timeout_seconds: int = 120
+    ollama_max_retries: int = 1
+
+    # Logging
+    log_level: str = "INFO"
+
+    # API settings
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+
+    # CORS settings (comma-separated in env file)
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+
+    # Watcher settings
+    watcher_debounce_seconds: float = 2.0
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse cors_origins string into a list."""
+        return _parse_list(self.cors_origins)
+
+
+# Global settings instance
+settings = Settings()

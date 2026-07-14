@@ -7,15 +7,17 @@ This document is an execution-oriented companion to the original implementation 
 - [docs/Praxis_Architecture_v1_1.md](docs/Praxis_Architecture_v1_1.md)
 
 ## Project State
-- Current Epic: TBD
-- Current Task: TBD
-- Current Branch: TBD
-- Overall Progress: 0%
-- Completed Epics: 0
-- Remaining Epics: 11
-- Current Status: Not Started
+- Current Epic: 1
+- Current Task: T1.6.1
+- Current Branch: epic/1-foundation-core-infrastructure
+- Current Epic Progress: 100% (21/21 tasks)
+- Overall Progress: 4% (21/~500 estimated total tasks)
+- Current Feature: 1.6 - CI Hygiene
+- Completed Epics: 1 (Epic 1 - Foundation & Core Infrastructure)
+- Remaining Epics: 10
+- Current Status: In Progress
 - Blocking Issues: None
-- Last Updated: YYYY-MM-DD
+- Last Updated: 2026-07-14
 
 ## Git Workflow
 1. Create a branch: `epic/<epic-number>-<short-name>`
@@ -39,10 +41,10 @@ Claude Code must never merge into `main` automatically. The developer performs t
 
 ## Epic 1: Foundation & Core Infrastructure
 
-- Status: Not Started
+- Status: Completed
 - Branch Name: `epic/1-foundation-core-infrastructure`
-- Start Date: TBD
-- Completion Date: TBD
+- Start Date: 2026-07-14
+- Completion Date: 2026-07-14
 
 ### Epic Execution Notes
 - Implement this epic in a single execution session unless a blocker requires a pause.
@@ -50,7 +52,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
 
 ### Feature 1.1 — Backend Project Setup
 
-- [ ] T1.1.1 — Initialize the backend Python project: `pyproject.toml` with all dependencies pinned per the Appendix version constraints; create the full `backend/app/` directory structure (empty `__init__.py` files in every package) exactly as laid out in Architecture Section 4.3
+- [x] T1.1.1 — Initialize the backend Python project: `pyproject.toml` with all dependencies pinned per the Appendix version constraints; create the full `backend/app/` directory structure (empty `__init__.py` files in every package) exactly as laid out in Architecture Section 4.3
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Appendix (Key Dependencies) · Section 4.3 (Backend Project Structure)
@@ -74,7 +76,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.1.2 — Implement application configuration: `pydantic-settings` `Settings` class covering every `.env` variable listed in Architecture Section 12.1; create `.env.example` with all defaults filled in
+- [x] T1.1.2 — Implement application configuration: `pydantic-settings` `Settings` class covering every `.env` variable listed in Architecture Section 12.1; create `.env.example` with all defaults filled in
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 12.1 (Environment Variables)
@@ -98,7 +100,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.1.3 — Implement the FastAPI app skeleton: `main.py` with an (initially empty) `lifespan` context manager stub, permissive local-only CORS for the Vite dev server origin, and a `GET /health` endpoint that runs `PRAGMA integrity_check` against the configured DB and reports the result
+- [x] T1.1.3 — Implement the FastAPI app skeleton: `main.py` with an (initially empty) `lifespan` context manager stub, permissive local-only CORS for the Vite dev server origin, and a `GET /health` endpoint that runs `PRAGMA integrity_check` against the configured DB and reports the result
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 11.1 (SQLite file corruption) · Section 13.4 (Database Corruption)
@@ -124,7 +126,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
 
 ### Feature 1.2 — Database Models (Core Entities)
 
-- [ ] T1.2.1 — Implement `Source` and `Lesson` SQLModel tables
+- [x] T1.2.1 — Implement `Source` and `Lesson` SQLModel tables
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 7 (ER summary) · PRD Section 12 (Entity: Source, Lesson)
@@ -148,7 +150,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.2.2 — Implement the `Note` SQLModel table with `NoteStatus` enum and the unique index on `vault_path`
+- [x] T1.2.2 — Implement the `Note` SQLModel table with `NoteStatus` enum and the unique index on `vault_path`
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 8 (`Note` definition) · Section 7.2 (`idx_note_vault_path`, `idx_note_status`)
@@ -172,7 +174,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.2.3 — Implement the `ApprovalQueue` SQLModel table with `ApprovalSourceType`/`ApprovalStatus` enums and the `reviewed_payload` JSON column
+- [x] T1.2.3 — Implement the `ApprovalQueue` SQLModel table with `ApprovalSourceType`/`ApprovalStatus` enums and the `reviewed_payload` JSON column
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 8 (`ApprovalQueue` definition, v1.1 `item_type` note)
@@ -196,7 +198,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.2.4 — Implement `LearningItem` with `ItemType` enum, all mastery/scheduling fields, and `Tag`/`LearningItemTag` join table
+- [x] T1.2.4 — Implement `LearningItem` with `ItemType` enum, all mastery/scheduling fields, and `Tag`/`LearningItemTag` join table
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 8 (`LearningItem` definition) · Section 7.2 (indexes)
@@ -220,7 +222,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.2.5 — Implement `LearningCorrection` and `PerformanceError` as two separate SQLModel tables (v1.1 split — do not recreate the old v1.0 `Correction` entity); `PerformanceError` must have no status/lifecycle field
+- [x] T1.2.5 — Implement `LearningCorrection` and `PerformanceError` as two separate SQLModel tables (v1.1 split — do not recreate the old v1.0 `Correction` entity); `PerformanceError` must have no status/lifecycle field
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 8 (`LearningCorrection`, `PerformanceError` definitions, ADR-05)
@@ -244,7 +246,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.2.6 — Implement `QuizSession` and `QuizQuestion`, including the four v1.1 evaluation-metadata columns on `QuizQuestion` (`evaluator_provider`, `evaluator_model`, `prompt_version`, `rubric_version`, all nullable)
+- [x] T1.2.6 — Implement `QuizSession` and `QuizQuestion`, including the four v1.1 evaluation-metadata columns on `QuizQuestion` (`evaluator_provider`, `evaluator_model`, `prompt_version`, `rubric_version`, all nullable)
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 8 (v1.1 note on `QuizQuestion`) · Section 7.1 (ADR-13 evaluation metadata) · PRD Section 12
@@ -268,7 +270,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.2.7 — Implement `WritingPrompt`, `WritingSubmission`, and `WritingEvaluation`, including the same four v1.1 evaluation-metadata columns on `WritingEvaluation`
+- [x] T1.2.7 — Implement `WritingPrompt`, `WritingSubmission`, and `WritingEvaluation`, including the same four v1.1 evaluation-metadata columns on `WritingEvaluation`
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 8 (v1.1 note) · PRD Section 12
@@ -292,7 +294,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.2.8 — Implement `WeeklyReport`, `Config` (key-value), and `AuditLog`
+- [x] T1.2.8 — Implement `WeeklyReport`, `Config` (key-value), and `AuditLog`
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - PRD Section 12 (Entity: WeeklyReport, Config, AuditLog)
@@ -318,7 +320,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
 
 ### Feature 1.3 — Migrations, Engine & Indexes
 
-- [ ] T1.3.1 — Set up Alembic (`alembic init`, configure `env.py` to import all SQLModel metadata) and generate the initial migration creating all 15 tables from Feature 1.2
+- [x] T1.3.1 — Set up Alembic (`alembic init`, configure `env.py` to import all SQLModel metadata) and generate the initial migration creating all 15 tables from Feature 1.2
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 3 (ADR-02) · Section 4.3 (`migrations/`)
@@ -342,7 +344,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.3.2 — Write a hand-authored Alembic migration creating the `learning_item_fts` FTS5 virtual table and its three sync triggers (`learning_item_ai`, `learning_item_ad`, `learning_item_au`) exactly as specified; this must be the only mechanism that ever writes to the FTS5 table
+- [x] T1.3.2 — Write a hand-authored Alembic migration creating the `learning_item_fts` FTS5 virtual table and its three sync triggers (`learning_item_ai`, `learning_item_ad`, `learning_item_au`) exactly as specified; this must be the only mechanism that ever writes to the FTS5 table
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 7.3 (FTS5 virtual table + triggers, v1.1 clarification)
@@ -366,7 +368,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.3.3 — Write a migration adding the composite indexes not expressible via SQLModel's single-column `Field(index=True)`: `(item_type, suspended)` on `learning_item`, `(source_type, source_id)` on `performance_error`, `(learning_item_id, created_at)` on `performance_error`
+- [x] T1.3.3 — Write a migration adding the composite indexes not expressible via SQLModel's single-column `Field(index=True)`: `(item_type, suspended)` on `learning_item`, `(source_type, source_id)` on `performance_error`, `(learning_item_id, created_at)` on `performance_error`
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 7.2 (Indexes table)
@@ -390,7 +392,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.3.4 — Implement `engine.py`: SQLModel engine construction pointed at `Settings.db_path`, connection-level `PRAGMA journal_mode=WAL` and `PRAGMA foreign_keys=ON`, and a `get_session()` FastAPI dependency
+- [x] T1.3.4 — Implement `engine.py`: SQLModel engine construction pointed at `Settings.db_path`, connection-level `PRAGMA journal_mode=WAL` and `PRAGMA foreign_keys=ON`, and a `get_session()` FastAPI dependency
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 3 (ADR-01, WAL mode) · Section 7.1 (foreign key enforcement)
@@ -416,7 +418,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
 
 ### Feature 1.4 — LLM Abstraction Skeleton & Test Fixtures
 
-- [ ] T1.4.1 — Define the `Generator` and `Evaluator` `Protocol` classes exactly as specified (no concrete implementation yet — that's Epic 2)
+- [x] T1.4.1 — Define the `Generator` and `Evaluator` `Protocol` classes exactly as specified (no concrete implementation yet — that's Epic 2)
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 3 (ADR-06 code block)
@@ -440,7 +442,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.4.2 — Implement `FakeGenerator`/`FakeEvaluator` test fixtures that return pre-registered responses keyed by `task` name
+- [x] T1.4.2 — Implement `FakeGenerator`/`FakeEvaluator` test fixtures that return pre-registered responses keyed by `task` name
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 17.3 (`FakeGenerator`/`FakeEvaluator` Pattern)
@@ -464,7 +466,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.4.3 — Set up pytest scaffolding: a `conftest.py` fixture providing a temp-file SQLite `Session` per test (not in-memory, since WAL-mode behavior matters — Section 3 ADR-01), and a documented pattern for overriding `get_generator`/`get_evaluator` FastAPI dependencies with the fakes from T1.4.2
+- [x] T1.4.3 — Set up pytest scaffolding: a `conftest.py` fixture providing a temp-file SQLite `Session` per test (not in-memory, since WAL-mode behavior matters — Section 3 ADR-01), and a documented pattern for overriding `get_generator`/`get_evaluator` FastAPI dependencies with the fakes from T1.4.2
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 17.1 (Testing Philosophy) · Section 17.3
@@ -490,7 +492,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
 
 ### Feature 1.5 — Frontend Project Setup & Shell
 
-- [ ] T1.5.1 — Initialize the frontend project: Vite + React + TypeScript template, Tailwind CSS configured, `react-router-dom` and `@tanstack/react-query` installed
+- [x] T1.5.1 — Initialize the frontend project: Vite + React + TypeScript template, Tailwind CSS configured, `react-router-dom` and `@tanstack/react-query` installed
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 3 (ADR-09) · Appendix (Key Dependencies — Frontend)
@@ -514,7 +516,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.5.2 — Implement `api/client.ts`: a thin `fetch` wrapper (base URL from an env var, JSON parsing, normalized error shape) and a starter `api/types.ts` file with TypeScript interfaces mirroring the backend's core Pydantic/SQLModel schemas produced so far (`Note`, `ApprovalQueue`, `LearningItem`)
+- [x] T1.5.2 — Implement `api/client.ts`: a thin `fetch` wrapper (base URL from an env var, JSON parsing, normalized error shape) and a starter `api/types.ts` file with TypeScript interfaces mirroring the backend's core Pydantic/SQLModel schemas produced so far (`Note`, `ApprovalQueue`, `LearningItem`)
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 4.4 (Frontend Project Structure — `api/`) · Section 5 (Component Interaction)
@@ -538,7 +540,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.5.3 — Implement `App.tsx` with `react-router-dom` routes for all six feature pages (initially rendering placeholder text) and wrap the app in a `QueryClientProvider`
+- [x] T1.5.3 — Implement `App.tsx` with `react-router-dom` routes for all six feature pages (initially rendering placeholder text) and wrap the app in a `QueryClientProvider`
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 4.4 (feature folder list) · Section 3 (ADR-09)
@@ -562,7 +564,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T1.5.4 — Implement shared components: `Button`, `Card`, `ScoreBadge`, `LoadingSpinner`, `EmptyState`, styled with Tailwind utility classes
+- [x] T1.5.4 — Implement shared components: `Button`, `Card`, `ScoreBadge`, `LoadingSpinner`, `EmptyState`, styled with Tailwind utility classes
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 4.4 (`shared/components/`) · Section 20.3 of PRD (visual design principles — single mastery gradient, not stoplight colors)
@@ -588,7 +590,7 @@ Claude Code must never merge into `main` automatically. The developer performs t
 
 ### Feature 1.6 — CI Hygiene
 
-- [ ] T1.6.1 — Configure `ruff` (backend) and ESLint + `tsc --noEmit` (frontend) with strict-but-reasonable rulesets; add `npm run test` wiring for Vitest; confirm both linters and the test runner execute cleanly on the scaffolded (near-empty) project
+- [x] T1.6.1 — Configure `ruff` (backend) and ESLint + `tsc --noEmit` (frontend) with strict-but-reasonable rulesets; add `npm run test` wiring for Vitest; confirm both linters and the test runner execute cleanly on the scaffolded (near-empty) project
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Appendix (Key Dependencies — `ruff`, `vitest`)

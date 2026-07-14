@@ -1,0 +1,46 @@
+[project]
+name = "praxis"
+version = "0.1.0"
+description = "Personal AI English Learning Coach"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "starlette>=0.38.0",
+    "sqlmodel>=0.0.21",
+    "alembic>=1.13.0",
+    "pydantic-settings>=2.6.0",
+    "watchdog>=4.0.0",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
