@@ -112,10 +112,12 @@ For each epic:
 2. complete the implementation for that epic
 3. run the required validation
 4. update the execution state in [docs/TASK_PLAN_ClaudeCode.md](docs/TASK_PLAN_ClaudeCode.md)
-5. write the epic completion report
+5. fill in the Epic Completion Report (in the existing section at the end of each epic)
 6. stop and wait for human review
 
 Claude Code must never merge into main. Only the human developer performs merges.
+
+**Commit Process:** After the human confirms the epic is complete, Claude Code will execute the commit directly from the conversation using the provided commit message template.
 
 ## 10. TASK_PLAN Responsibilities
 
