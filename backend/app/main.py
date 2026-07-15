@@ -27,9 +27,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     settings.backup_dir.mkdir(parents=True, exist_ok=True)
 
+    # Start VaultWatcher as background thread
+    from app.ingestion.watcher import get_vault_watcher
+
+    vault_watcher = get_vault_watcher()
+    vault_started = vault_watcher.start()
+
+    # Store watcher state in app state for access
+    app.state.vault_watcher = vault_watcher
+    app.state.vault_watcher_started = vault_started
+
     yield
 
-    # Shutdown
+    # Shutdown - stop VaultWatcher
+    vault_watcher.stop()
+
     logger.info("Shutting down Praxis application...")
 
 

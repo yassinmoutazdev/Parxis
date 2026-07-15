@@ -39,6 +39,23 @@ engine = create_db_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+class Session:
+    """Context manager for database sessions.
+
+    Usage:
+        with Session() as session:
+            session.query(Model).all()
+    """
+
+    def __enter__(self):
+        self._session = SessionLocal()
+        return self._session
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._session:
+            self._session.close()
+
+
 def get_session() -> Generator:
     """FastAPI dependency for getting a database session."""
     session = SessionLocal()

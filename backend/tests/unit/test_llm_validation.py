@@ -3,12 +3,10 @@
 Corresponds to ARCHITECTURE Section 17.2 (Testing Boundaries).
 """
 
-import pytest
 
 from app.llm.schemas import (
     DimensionScore,
     GradedAnswerOutput,
-    InlineCorrection,
     MiniWritingEvalOutput,
     ParsedItem,
     ParsedNoteOutput,
@@ -22,9 +20,9 @@ from app.llm.validation import (
     validate_mini_writing_eval,
     validate_parsed_note,
     validate_quiz_question,
+    validate_topic,
     validate_weekly_narrative,
     validate_weekly_writing_eval,
-    validate_topic,
 )
 
 

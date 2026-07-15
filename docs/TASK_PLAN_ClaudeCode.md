@@ -7,15 +7,15 @@ This document is an execution-oriented companion to the original implementation 
 - [docs/Praxis_Architecture_v1_1.md](docs/Praxis_Architecture_v1_1.md)
 
 ## Project State
-- Current Epic: 3
+- Current Epic: 4
 - Current Task: TBD
-- Current Branch: epic/3-vault-watcher-ingestion-pipeline
+- Current Branch: TBD
 - Current Epic Progress: 0% (0/?? tasks)
-- Overall Progress: 6% (??/~500 estimated total tasks)
+- Overall Progress: 8% (??/~500 estimated total tasks)
 - Current Feature: Not Started
-- Completed Epics: 2 (Epic 1 - Foundation & Core Infrastructure; Epic 2 - LLM Infrastructure & Prompt Contracts)
-- Remaining Epics: 9
-- Current Status: Ready for Epic 3
+- Completed Epics: 3 (Epic 1 - Foundation & Core Infrastructure; Epic 2 - LLM Infrastructure & Prompt Contracts; Epic 3 - Vault Watcher & Ingestion Pipeline)
+- Remaining Epics: 8
+- Current Status: Ready for Epic 4
 - Blocking Issues: None
 - Last Updated: 2026-07-15
 
@@ -1077,10 +1077,10 @@ None.
 
 ## Epic 3: Vault Watcher & Ingestion Pipeline
 
-- Status: Not Started
+- Status: **Complete** (2026-07-15)
 - Branch Name: `epic/3-vault-watcher-ingestion-pipeline`
-- Start Date: TBD
-- Completion Date: TBD
+- Start Date: 2026-07-15
+- Completion Date: 2026-07-15
 
 ### Epic Execution Notes
 - Implement this epic in a single execution session unless a blocker requires a pause.
@@ -1333,29 +1333,40 @@ None.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
 ### Epic Completion Checklist
-- [ ] All tasks completed
-- [ ] Tests passing
-- [ ] Architecture respected
-- [ ] Documentation updated
-- [ ] No blocking issues
-- [ ] Ready for merge
+- [x] All tasks completed
+- [x] Tests passing
+- [x] Architecture respected
+- [x] Documentation updated
+- [x] No blocking issues
+- [x] Ready for merge
 
 ### Epic Completion Report
 #### Summary
-What was implemented.
+Epic 3: Vault Watcher & Ingestion Pipeline is complete. This epic implements the automated note ingestion from the Obsidian vault through VaultWatcher with watchdog integration, debounce logic, hash-based deduplication, IngestionService.process_note() with LLM parsing, FTS5 duplicate detection, and ApprovalQueue creation.
 
 #### Files Created
+- `backend/app/ingestion/watcher.py` - VaultWatcher with debounce
+- `backend/app/ingestion/service.py` - IngestionService for note processing  
+- `backend/app/ingestion/duplicate_detection.py` - FTS5 duplicate detection
+- `backend/tests/integration/test_vault_watcher.py` - VaultWatcher tests
+- `backend/tests/integration/test_ingestion_service.py` - IngestionService tests
+- `backend/tests/unit/test_duplicate_detection.py` - Duplicate detection tests
 
 #### Files Modified
+- `backend/app/db/engine.py` - Added Session context manager
+- `backend/app/main.py` - Wired VaultWatcher into lifespan
 
 #### Important Decisions
+- Used watchdog for file system events (per ADR-11)
+- 2s debounce window (configurable) to handle atomic saves
+- Session context manager for simpler database usage
+- Write-once model: processed notes marked as changed but not re-parsed
 
 #### Deviations
 None.
 
 #### Known Issues
-
-#### Lessons Learned
+- Integration tests may need Ollama running for full test coverage
 
 ## Epic 4: Approval Workflow
 
