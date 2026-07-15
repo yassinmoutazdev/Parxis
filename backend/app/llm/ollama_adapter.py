@@ -19,6 +19,31 @@ from . import inference_settings
 logger = logging.getLogger(__name__)
 
 
+def _strip_code_fences(content: str) -> str:
+    """Strip markdown code fences from JSON content.
+
+    Sometimes the model wraps JSON in ```json ... ``` fences even when
+    format=schema is specified. This removes those fences.
+
+    Args:
+        content: The raw content from the model
+
+    Returns:
+        Content with code fences stripped
+    """
+    # Strip ```json and ``` markers
+    lines = content.split("\n")
+    cleaned_lines = []
+
+    for line in lines:
+        # Skip code fence markers
+        if line.strip() in ("```json", "```", "`json", "`"):
+            continue
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines).strip()
+
+
 class OllamaAdapter:
     """Ollama implementation of Generator and Evaluator protocols.
 
@@ -153,6 +178,7 @@ class OllamaAdapter:
             "model": self.model,
             "messages": messages,
             "format": output_schema.model_json_schema(),
+            "stream": False,  # Disable streaming for structured output
             **inf_settings.to_ollama_params(),
         }
 
@@ -169,6 +195,13 @@ class OllamaAdapter:
 
                     data = response.json()
                     content = data.get("message", {}).get("content", "")
+
+                    # Strip markdown code fences if present
+                    content = _strip_code_fences(content)
+
+                    # Handle case where model returns array instead of object
+                    if content.strip().startswith("["):
+                        content = '{"items": ' + content + "}"
 
                     # Parse and validate the response
                     try:
