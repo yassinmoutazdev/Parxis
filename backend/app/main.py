@@ -108,6 +108,13 @@ async def root() -> dict:
     }
 
 
+# Import routers
+from app.approvals.router import router as approvals_router
+
+# Register routers
+app.include_router(approvals_router)
+
+
 if __name__ == "__main__":
     import uvicorn
 

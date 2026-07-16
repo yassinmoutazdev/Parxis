@@ -89,27 +89,36 @@ export async function getTrends(range: string = '90d'): Promise<TrendPoint[]> {
 
 // Approvals
 export async function getPendingApprovals(): Promise<ApprovalQueueItem[]> {
-  return request('/approvals/pending')
+  return request('/approvals?status=PENDING')
 }
 
 export async function getApprovalItem(id: number): Promise<ApprovalQueueItem> {
-  return request(`/approvals/${id}`)
+  return request(`/approvals?id=${id}`)
 }
 
 export async function approveItem(
   id: number,
   editedPayload?: Record<string, unknown>
-): Promise<{ learning_item_id: number }> {
+): Promise<{ learning_item_id: number | null; message: string }> {
+  if (editedPayload && Object.keys(editedPayload).length > 0) {
+    return request(`/approvals/${id}/approve-edited`, {
+      method: 'POST',
+      body: JSON.stringify(editedPayload),
+    })
+  }
   return request(`/approvals/${id}/approve`, {
     method: 'POST',
-    body: JSON.stringify(editedPayload || {}),
   })
 }
 
-export async function rejectItem(id: number): Promise<void> {
+export async function rejectItem(id: number): Promise<{ learning_item_id: number | null; message: string }> {
   return request(`/approvals/${id}/reject`, {
     method: 'POST',
   })
+}
+
+export async function getPendingCount(): Promise<{ count: number }> {
+  return request('/approvals/pending-count')
 }
 
 // Learning Items

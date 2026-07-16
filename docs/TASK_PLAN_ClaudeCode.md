@@ -1628,29 +1628,48 @@ None.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
 ### Epic Completion Checklist
-- [ ] All tasks completed
-- [ ] Tests passing
-- [ ] Architecture respected
-- [ ] Documentation updated
-- [ ] No blocking issues
-- [ ] Ready for merge
+- [x] All tasks completed
+- [x] Tests passing
+- [x] Architecture respected
+- [x] Documentation updated
+- [x] No blocking issues
+- [x] Ready for merge
 
 ### Epic Completion Report
 #### Summary
-What was implemented.
+Implemented the complete approval workflow for parsed notes, enabling learners to review and approve/reject AI-suggested learning items before they enter the permanent knowledge base. The workflow includes the ApprovalService with approve/reject logic, REST API endpoints, TanStack Query hooks, frontend components, and comprehensive tests.
 
 #### Files Created
+- `backend/app/approvals/service.py` - ApprovalService with approve(), approve_edited(), reject() methods and double-approval guard
+- `backend/app/approvals/router.py` - REST API router with endpoints for listing, approving, rejecting, and batch operations
+- `backend/tests/integration/test_approval_service.py` - Integration tests for approval state machine transitions
+- `frontend/src/features/approvals/hooks/usePendingApprovals.ts` - TanStack Query hooks for approvals
+- `frontend/src/features/approvals/hooks/index.ts` - Hook exports
+- `frontend/src/features/approvals/components/ApprovalCard.tsx` - Card component for displaying and acting on approval items
+- `frontend/src/features/approvals/components/index.ts` - Component exports
+- `frontend/src/features/approvals/hooks/__tests__/usePendingApprovals.test.tsx` - Frontend hook tests
 
 #### Files Modified
+- `backend/app/approvals/__init__.py` - Added module exports
+- `backend/app/main.py` - Registered approvals router
+- `frontend/src/api/client.ts` - Updated approval API endpoints
+- `frontend/src/features/approvals/ApprovalsPage.tsx` - Implemented full approvals page with grouping
+- `docs/TASK_PLAN_ClaudeCode.md` - Updated status to completed
 
 #### Important Decisions
+- Created LearningCorrection vs LearningItem distinction based on item_type field (CORRECTION type creates LearningCorrection, otherwise LearningItem)
+- Used mastery_score=0.3 initialization per PRD Section 17.3
+- Implemented double-approval guard returning HTTP 409 Conflict to prevent duplicate inserts
+- Grouped approvals by source_type+source_id with oldest-first ordering in UI
 
 #### Deviations
 None.
 
 #### Known Issues
+None.
 
 #### Lessons Learned
+The approval workflow is cleanly separated from the learning item creation path, maintaining the architectural invariant that only ApprovalService can create LearningItem/LearningCorrection rows.
 
 ## Epic 5: Scheduler & Retrieval
 

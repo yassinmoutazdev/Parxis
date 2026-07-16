@@ -47,3 +47,6 @@ Thumbs.db
 # Environment
 .env
 *.local
+# Database
+*.db
+data/*.db
