@@ -143,12 +143,18 @@ export async function startQuiz(
 
 export async function submitQuizAnswers(
   sessionId: number,
-  answers: Array<{ question_id: number; user_answer: string }>
-): Promise<QuizSession & { questions: QuizQuestion[] }> {
+  answers: Record<number, string>  // question_id -> user_answer
+): Promise<QuizSession & { questions: QuizQuestion[]; correct_count: number; incorrect_count: number; total_questions: number }> {
   return request(`/quizzes/${sessionId}/answers`, {
     method: 'POST',
     body: JSON.stringify({ answers }),
   })
+}
+
+export async function getQuizSession(
+  sessionId: number
+): Promise<QuizSession & { questions: QuizQuestion[]; correct_count: number; incorrect_count: number; total_questions: number }> {
+  return request(`/quizzes/${sessionId}`)
 }
 
 // Writing

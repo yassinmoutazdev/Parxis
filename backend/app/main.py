@@ -110,9 +110,11 @@ async def root() -> dict:
 
 # Import routers
 from app.approvals.router import router as approvals_router
+from app.quizzes.router import router as quizzes_router
 
 # Register routers
 app.include_router(approvals_router)
+app.include_router(quizzes_router)
 
 
 if __name__ == "__main__":

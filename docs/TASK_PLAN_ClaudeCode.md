@@ -1943,10 +1943,10 @@ The separation between scheduler (mastery logic) and retrieval (data queries) ke
 
 ## Epic 6: Quiz Engine
 
-- Status: Not Started
+- Status: Completed
 - Branch Name: `epic/6-quiz-engine`
-- Start Date: TBD
-- Completion Date: TBD
+- Start Date: 2026-07-16
+- Completion Date: 2026-07-16
 
 ### Epic Execution Notes
 - Implement this epic in a single execution session unless a blocker requires a pause.
@@ -2251,29 +2251,50 @@ The separation between scheduler (mastery logic) and retrieval (data queries) ke
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
 ### Epic Completion Checklist
-- [ ] All tasks completed
-- [ ] Tests passing
-- [ ] Architecture respected
-- [ ] Documentation updated
-- [ ] No blocking issues
-- [ ] Ready for merge
+- [x] All tasks completed
+- [x] Tests passing
+- [x] Architecture respected
+- [x] Documentation updated
+- [x] No blocking issues
+- [x] Ready for merge
 
 ### Epic Completion Report
 #### Summary
-What was implemented.
+Implemented the complete Quiz Engine (Epic 6) including quiz generation, grading (deterministic and LLM-fallback), API endpoints, and frontend UI components. The quiz engine allows learners to practice learning items through various question modes with spaced repetition mastery tracking.
 
 #### Files Created
+- `backend/app/quizzes/service.py` - QuizService with start_session() and grade_session()
+- `backend/app/quizzes/grading.py` - Deterministic grading module
+- `backend/app/quizzes/router.py` - Quiz API router (/quizzes endpoints)
+- `backend/app/quizzes/__init__.py` - Module exports
+- `backend/tests/unit/test_quiz_grading.py` - Unit tests for grade_deterministic() (32 tests)
+- `backend/tests/integration/test_quiz_service.py` - Integration tests for quiz flow (8 tests)
+- `frontend/src/features/quizzes/hooks/index.ts` - React hooks (useStartQuiz, useSubmitAnswer)
+- `frontend/src/features/quizzes/components/QuizModeSelector.tsx` - Mode selection component
+- `frontend/src/features/quizzes/components/QuestionCard.tsx` - Question display component
+- `frontend/src/features/quizzes/components/SessionSummary.tsx` - Results summary component
 
 #### Files Modified
+- `backend/app/main.py` - Added quizzes router
+- `backend/app/quizzes/service.py` - Added provenance stamping for LLM-graded answers
+- `frontend/src/api/client.ts` - Added getQuizSession and updated submitQuizAnswers
+- `frontend/src/features/quizzes/QuizPage.tsx` - Implemented full quiz page orchestration
 
 #### Important Decisions
+- Used ADR-05 exception: PerformanceError rows written directly by QuizService with no approval step
+- Deterministic grading uses normalized (lowercase, whitespace-stripped, punctuation-removed) matching
+- LLM fallback uses deterministic inference settings (temperature=0, seed=42) per ADR-12
+- Provenance stamping (evaluator_provider, model, prompt_version, rubric_version) added per ADR-13
 
 #### Deviations
 None.
 
 #### Known Issues
+- None identified during implementation
 
 #### Lessons Learned
+- The async monkeypatching in tests is complex - simpler integration tests that focus on critical assertions work better
+- Using existing patterns from other epics (e.g., test_retrieval_scheduler.py) helped accelerate test implementation
 
 ## Epic 7: Writing Evaluation
 
