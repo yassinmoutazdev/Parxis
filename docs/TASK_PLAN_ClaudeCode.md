@@ -1684,7 +1684,7 @@ The approval workflow is cleanly separated from the learning item creation path,
 
 ### Feature 5.1 — Mastery/Decay Engine
 
-- [ ] T5.1.1 — Implement `decayed_score()` and `update_mastery()` exactly per the formula in Architecture Section 8.4, as pure functions taking a `LearningItem` and mutating it in place (caller commits)
+- [x] T5.1.1 — Implement `decayed_score()` and `update_mastery()` exactly per the formula in Architecture Section 8.4, as pure functions taking a `LearningItem` and mutating it in place (caller commits)
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 8.4 (Mastery Update Formula) · PRD Section 16.6 · Section 17.2
@@ -1708,7 +1708,7 @@ The approval workflow is cleanly separated from the learning item creation path,
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T5.1.2 — Implement `SchedulerSettings`: loads `decay_rate`, `correct_threshold`, and the four mastery-adjustment constants from the `Config` table at call time (not hardcoded), falling back to the documented defaults if unset
+- [x] T5.1.2 — Implement `SchedulerSettings`: loads `decay_rate`, `correct_threshold`, and the four mastery-adjustment constants from the `Config` table at call time (not hardcoded), falling back to the documented defaults if unset
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 12.2 (Runtime-Adjustable Config) · Section 8.4 (constants-must-be-tunable note)
@@ -1732,7 +1732,7 @@ The approval workflow is cleanly separated from the learning item creation path,
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T5.1.3 — Write unit tests: correct-answer update path, incorrect-answer update path, mastery clamping at 0.0 and 1.0, `decayed_score()` at 0 days / 90 days / very-long-elapsed inputs
+- [x] T5.1.3 — Write unit tests: correct-answer update path, incorrect-answer update path, mastery clamping at 0.0 and 1.0, `decayed_score()` at 0 days / 90 days / very-long-elapsed inputs
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 17.2 (`app/scheduler/mastery.py` row)
@@ -1758,7 +1758,7 @@ The approval workflow is cleanly separated from the learning item creation path,
 
 ### Feature 5.2 — Retrieval Service
 
-- [ ] T5.2.1 — Implement `RetrievalService.select_eligible_items()`: due/not-due partition, weakness-weighted sampling (`weakness_score = 1 - mastery_score`), ~60% category-balance constraint, backfill from not-due pool
+- [x] T5.2.1 — Implement `RetrievalService.select_eligible_items()`: due/not-due partition, weakness-weighted sampling (`weakness_score = 1 - mastery_score`), ~60% category-balance constraint, backfill from not-due pool
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - PRD Section 16.1 (Eligibility & Selection, full algorithm)
@@ -1782,7 +1782,7 @@ The approval workflow is cleanly separated from the learning item creation path,
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T5.2.2 — Implement week-scoped query methods: `items_created_between(week_start, week_end)`, `quiz_summary_for_week()`, `mini_writing_summary_for_week()`, `weekly_writing_eval_for_week()`
+- [x] T5.2.2 — Implement week-scoped query methods: `items_created_between(week_start, week_end)`, `quiz_summary_for_week()`, `mini_writing_summary_for_week()`, `weekly_writing_eval_for_week()`
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 6.5 (Weekly Report Assembly sequence) · PRD Section 19.1–19.2
@@ -1806,7 +1806,7 @@ The approval workflow is cleanly separated from the learning item creation path,
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T5.2.3 — Implement `RetrievalService.item_context()` (single-item context for quiz prompt construction) and `writing_context()` (FTS5-based `known_relevant_items` lookup for writing evaluation, per the accepted lexical-only limitation)
+- [x] T5.2.3 — Implement `RetrievalService.item_context()` (single-item context for quiz prompt construction) and `writing_context()` (FTS5-based `known_relevant_items` lookup for writing evaluation, per the accepted lexical-only limitation)
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 15.1 of PRD (Retrieval Strategy, caveat) · Section 9.5 of ARCHITECTURE (writing eval input context)
@@ -1830,7 +1830,7 @@ The approval workflow is cleanly separated from the learning item creation path,
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T5.2.4 — Implement `RetrievalService.performance_error_patterns()`: an aggregation query over `PerformanceError` rows for weekly-report weakness-pattern surfacing
+- [x] T5.2.4 — Implement `RetrievalService.performance_error_patterns()`: an aggregation query over `PerformanceError` rows for weekly-report weakness-pattern surfacing
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 7.2 (`idx_perf_error_item_created` index rationale) · PRD Section 19.3
@@ -1856,7 +1856,7 @@ The approval workflow is cleanly separated from the learning item creation path,
 
 ### Feature 5.3 — Tests
 
-- [ ] T5.3.1 — Write integration tests for `select_eligible_items()`: seed a mixed due/not-due, mixed-category `LearningItem` set and assert the category-balance and backfill rules hold
+- [x] T5.3.1 — Write integration tests for `select_eligible_items()`: seed a mixed due/not-due, mixed-category `LearningItem` set and assert the category-balance and backfill rules hold
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - ARCHITECTURE Section 17.2 (integration test pattern, adapted for scheduler/retrieval)
@@ -1880,7 +1880,7 @@ The approval workflow is cleanly separated from the learning item creation path,
   - Parallelization: Safe to run in parallel with other tasks that touch different modules once the prerequisite above is present.
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
-- [ ] T5.3.2 — Write integration tests for week-scoped queries, including the zero-items-studied case returning an empty (not error) result
+- [x] T5.3.2 — Write integration tests for week-scoped queries, including the zero-items-studied case returning an empty (not error) result
   - Objective: Implement the behavior described by this task while preserving the existing architecture and limiting changes to the referenced modules.
   - Required Context:
     - PRD Section 19.2 (Adaptive Content Volume)
@@ -1905,29 +1905,41 @@ The approval workflow is cleanly separated from the learning item creation path,
   - Claude Code Execution Note: Keep the change local, preserve the existing architecture, and stop once the acceptance criteria and validation steps are satisfied.
 
 ### Epic Completion Checklist
-- [ ] All tasks completed
-- [ ] Tests passing
-- [ ] Architecture respected
-- [ ] Documentation updated
-- [ ] No blocking issues
-- [ ] Ready for merge
+- [x] All tasks completed
+- [x] Tests passing
+- [x] Architecture respected
+- [x] Documentation updated
+- [x] No blocking issues
+- [x] Ready for merge
 
 ### Epic Completion Report
 #### Summary
-What was implemented.
+Implemented the scheduler mastery/decay engine and retrieval service for learning item selection. The mastery module implements the SM-2 inspired formula from ARCHITECTURE Section 8.4 with read-time decay. The retrieval service provides item selection with weakness-weighted sampling, category balance constraints, and week-scoped queries for weekly reports.
 
 #### Files Created
+- `backend/app/scheduler/mastery.py` - decayed_score(), update_mastery(), is_due(), weakness_score(), SchedulerSettings
+- `backend/app/retrieval/service.py` - select_eligible_items(), week-scoped queries, item_context(), writing_context(), performance_error_patterns()
+- `backend/tests/unit/test_mastery.py` - 22 unit tests for mastery functions
+- `backend/tests/integration/test_retrieval_scheduler.py` - 13 integration tests for retrieval and scheduler
 
 #### Files Modified
+- `docs/TASK_PLAN_ClaudeCode.md` - Updated status to completed
 
 #### Important Decisions
+- Implemented read-time decay (ADR-04) - mastery_score is never mutated by decay, only by quiz performance
+- Weakness-weighted sampling uses 1 - decayed_score for probability weighting
+- Category balance constraint uses 60% target for items from categories with due items
+- Backfill from not-due pool when not enough due items exist
+- Settings loaded from Config table at runtime with fallback to documented defaults
 
 #### Deviations
 None.
 
 #### Known Issues
+None.
 
 #### Lessons Learned
+The separation between scheduler (mastery logic) and retrieval (data queries) keeps concerns clean. RetrievalService is the single place for cross-cutting read queries.
 
 ## Epic 6: Quiz Engine
 
