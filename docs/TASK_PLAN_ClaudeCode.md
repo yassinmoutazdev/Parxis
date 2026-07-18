@@ -2657,10 +2657,10 @@ None.
 
 ## Epic 8: Weekly Reports
 
-- Status: Not Started
+- Status: Completed
 - Branch Name: `epic/8-weekly-reports`
-- Start Date: TBD
-- Completion Date: TBD
+- Start Date: 2026-07-18
+- Completion Date: 2026-07-18
 
 ### Epic Execution Notes
 - Implement this epic in a single execution session unless a blocker requires a pause.
@@ -2852,13 +2852,28 @@ None.
 
 ### Epic Completion Report
 #### Summary
-What was implemented.
+Implemented the Weekly Reports system (Epic 8) including ReportService with week boundary calculation, adaptive content volume handling, mastery snapshot, and weekly narrative generation. Created REST endpoints for the weekly review flow (start, quiz, writing-prompt, writing-submit, finalize). Built frontend hooks and ReportsPage component for the full weekly review workflow. All 9 integration tests pass.
 
 #### Files Created
+- `backend/app/reports/service.py` - ReportService with assemble(), get_week_boundary(), _category_mastery_snapshot()
+- `backend/app/reports/router.py` - REST endpoints for weekly review flow
+- `backend/tests/integration/test_report_service.py` - 9 integration tests
+- `frontend/src/features/reports/hooks/index.ts` - useStartWeeklyReview, useWeeklyQuiz, useWeeklyWriting, useWeeklyReports hooks
+- `frontend/src/features/reports/components/ReportSummaryCard.tsx` - Report display component
+- `frontend/src/features/reports/ReportsPage.tsx` - Full weekly review flow orchestration
 
 #### Files Modified
+- `backend/app/main.py` - Added reports router
+- `backend/app/reports/__init__.py` - Module exports
+- `frontend/src/api/client.ts` - Updated API functions
 
 #### Important Decisions
+- ADR-05: PerformanceError rows written directly (no approval) for mini writing corrections, suggested items go to ApprovalQueue (approval-gated)
+- ADR-12: Deterministic inference settings (temperature=0, seed=42) for evaluation tasks
+- ADR-13: Provenance metadata on evaluations
+- Weekly Monday-Sunday boundary calculation
+- Point-in-time mastery snapshot (frozen at report creation)
+- Adaptive Content Volume - handling zero items studied
 
 #### Deviations
 None.

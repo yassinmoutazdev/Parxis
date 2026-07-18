@@ -111,11 +111,13 @@ async def root() -> dict:
 # Import routers
 from app.approvals.router import router as approvals_router
 from app.quizzes.router import router as quizzes_router
+from app.reports.router import router as reports_router
 from app.writing.router import router as writing_router
 
 # Register routers
 app.include_router(approvals_router)
 app.include_router(quizzes_router)
+app.include_router(reports_router)
 app.include_router(writing_router)
 
 

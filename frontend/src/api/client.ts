@@ -211,8 +211,8 @@ export async function getWritingEvaluation(
 }
 
 // Reports
-export async function getWeeklyReports(): Promise<WeeklyReport[]> {
-  return request('/reports/weekly')
+export async function listWeeklyReports(limit: number = 10): Promise<{ reports: WeeklyReport[] }> {
+  return request(`/reports?limit=${limit}`)
 }
 
 export async function getWeeklyReport(id: number): Promise<WeeklyReport> {
@@ -222,9 +222,53 @@ export async function getWeeklyReport(id: number): Promise<WeeklyReport> {
 export async function startWeeklyReview(): Promise<{
   week_start: string
   week_end: string
+  existing_report_id: number | null
 }> {
   return request('/reports/weekly/start', {
     method: 'POST',
+  })
+}
+
+export async function finalizeWeeklyReport(
+  weekStart?: string,
+  weekEnd?: string
+): Promise<WeeklyReport> {
+  return request('/reports/weekly/finalize', {
+    method: 'POST',
+    body: JSON.stringify({ week_start: weekStart, week_end: weekEnd }),
+  })
+}
+
+export async function startWeeklyQuiz(): Promise<{
+  session_id: number
+  questions: Array<{ id: number; question_type: string; prompt: string }>
+}> {
+  return request('/reports/weekly/quiz', {
+    method: 'POST',
+  })
+}
+
+export async function createWeeklyWritingPrompt(): Promise<{
+  id: number
+  prompt_type: string
+  topic: string
+  used_at: string
+}> {
+  return request('/reports/weekly/writing-prompt', {
+    method: 'POST',
+  })
+}
+
+export async function submitWeeklyWriting(
+  promptId: number,
+  text: string
+): Promise<{
+  submission: WritingSubmission
+  evaluation: WritingEvaluation
+}> {
+  return request('/reports/weekly/writing-submit', {
+    method: 'POST',
+    body: JSON.stringify({ prompt_id: promptId, text }),
   })
 }
 
