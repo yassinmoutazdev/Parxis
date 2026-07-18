@@ -175,23 +175,57 @@ export interface WeeklyReport {
 
 // Dashboard Types
 export interface DashboardOverview {
-  proficiency: number
-  trend_delta: number
+  proficiency: number | null
+  category_mastery_avg: number | null
+  writing_performance_avg: number | null
+  pending_approvals_count: number
   week_snapshot: {
     items_studied: number
-    quiz_score: number | null
-    writing_score: number | null
+    quiz_sessions: number
+    writing_submissions: number
   }
-  pending_approvals_count: number
+  health: {
+    status: string
+    vault_watcher: string
+    vault_path: string | null
+  }
 }
 
 export interface CategoryMastery {
-  category: ItemType
-  average_mastery: number
+  category: string
+  mastery_score: number
   item_count: number
+  total_reviews: number
 }
 
 export interface TrendPoint {
-  date: string
-  value: number
+  week_start: string
+  accuracy: number | null
+  total_questions: number
+}
+
+export interface WritingScorePoint {
+  week_start: string
+  grammar: number | null
+  naturalness: number | null
+  vocabulary: number | null
+  coherence: number | null
+  overall: number | null
+}
+
+export interface ItemsLearnedPoint {
+  week_start: string
+  count: number
+}
+
+export interface TrendData {
+  quiz_accuracy: TrendPoint[]
+  writing_scores: WritingScorePoint[]
+  items_learned: ItemsLearnedPoint[]
+  range_days: number
+}
+
+export interface LearningItemBrowser extends LearningItem {
+  decayed_mastery_score: number
+  tags: string[]
 }

@@ -4,6 +4,7 @@ import type {
   Note,
   ApprovalQueueItem,
   LearningItem,
+  LearningItemBrowser,
   QuizSession,
   QuizQuestion,
   WritingPrompt,
@@ -12,7 +13,7 @@ import type {
   WeeklyReport,
   DashboardOverview,
   CategoryMastery,
-  TrendPoint,
+  TrendData,
 } from './types'
 
 const API_BASE = '/api'
@@ -79,12 +80,32 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
   return request('/dashboard/overview')
 }
 
-export async function getMasteryBreakdown(): Promise<CategoryMastery[]> {
+export async function getMasteryBreakdown(): Promise<{ categories: CategoryMastery[] }> {
   return request('/dashboard/mastery-breakdown')
 }
 
-export async function getTrends(range: string = '90d'): Promise<TrendPoint[]> {
-  return request(`/dashboard/trends?range=${range}`)
+export async function getTrends(rangeDays: number = 90): Promise<TrendData> {
+  return request(`/dashboard/trends?range_days=${rangeDays}`)
+}
+
+export async function getItems(
+  search?: string,
+  itemType?: string,
+  tag?: string,
+  minMastery?: number,
+  maxMastery?: number,
+  limit: number = 50,
+  offset: number = 0
+): Promise<{ items: LearningItemBrowser[]; total: number }> {
+  const params = new URLSearchParams()
+  if (search) params.set('search', search)
+  if (itemType) params.set('item_type', itemType)
+  if (tag) params.set('tag', tag)
+  if (minMastery !== undefined) params.set('min_mastery', minMastery.toString())
+  if (maxMastery !== undefined) params.set('max_mastery', maxMastery.toString())
+  params.set('limit', limit.toString())
+  params.set('offset', offset.toString())
+  return request(`/dashboard/items?${params.toString()}`)
 }
 
 // Approvals
