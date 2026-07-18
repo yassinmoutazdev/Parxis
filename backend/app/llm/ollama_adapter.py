@@ -60,6 +60,7 @@ class OllamaAdapter:
         """
         self.host = host or settings.ollama_host
         self.model = model or settings.ollama_model
+        self.api_key = settings.ollama_api_key
         self.timeout = settings.ollama_timeout_seconds
         self.max_retries = settings.ollama_max_retries
 
@@ -185,11 +186,17 @@ class OllamaAdapter:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             last_error: Exception | None = None
 
+            # Build request headers (include API key if set)
+            headers: dict[str, str] = {}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+
             for attempt in range(self.max_retries + 1):
                 try:
                     response = await client.post(
                         f"{self.host}/api/chat",
                         json=payload,
+                        headers=headers,
                     )
                     response.raise_for_status()
 

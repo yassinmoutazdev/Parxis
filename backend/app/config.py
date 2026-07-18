@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # Ollama settings
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "gemma4:31b"
+    ollama_api_key: str | None = None  # Optional API key for Ollama Cloud
     ollama_timeout_seconds: int = 120
     ollama_max_retries: int = 1
 
