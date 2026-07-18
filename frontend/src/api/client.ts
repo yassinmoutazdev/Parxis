@@ -158,24 +158,56 @@ export async function getQuizSession(
 }
 
 // Writing
-export async function getWritingPrompt(
-  type: string
-): Promise<WritingPrompt> {
-  return request(`/writing/prompt`, {
+export async function createMiniPrompt(): Promise<WritingPrompt> {
+  return request('/writing/prompts/mini', {
     method: 'POST',
-    body: JSON.stringify({ prompt_type: type }),
   })
+}
+
+export async function createWeeklyPrompt(): Promise<WritingPrompt> {
+  return request('/writing/prompts/weekly', {
+    method: 'POST',
+  })
+}
+
+export async function listWritingPrompts(
+  promptType?: string,
+  limit: number = 10
+): Promise<{ prompts: WritingPrompt[] }> {
+  const params = new URLSearchParams()
+  if (promptType) params.set('prompt_type', promptType)
+  params.set('limit', limit.toString())
+  return request(`/writing/prompts?${params.toString()}`)
 }
 
 export async function submitWriting(
   promptId: number,
-  text: string,
-  type: string
-): Promise<WritingSubmission & { evaluation: WritingEvaluation }> {
+  text: string
+): Promise<{ submission: WritingSubmission; evaluation: WritingEvaluation }> {
   return request('/writing/submissions', {
     method: 'POST',
-    body: JSON.stringify({ prompt_id: promptId, text, submission_type: type }),
+    body: JSON.stringify({ prompt_id: promptId, text }),
   })
+}
+
+export async function retryWritingEvaluation(
+  submissionId: number
+): Promise<{ submission: WritingSubmission; evaluation: WritingEvaluation }> {
+  return request(`/writing/submissions/${submissionId}/retry`, {
+    method: 'POST',
+  })
+}
+
+export async function getWritingSubmission(
+  submissionId: number
+): Promise<WritingSubmission> {
+  return request(`/writing/submissions/${submissionId}`)
+}
+
+export async function getWritingEvaluation(
+  evaluationId: number
+): Promise<WritingEvaluation> {
+  return request(`/writing/evaluations/${evaluationId}`)
 }
 
 // Reports
