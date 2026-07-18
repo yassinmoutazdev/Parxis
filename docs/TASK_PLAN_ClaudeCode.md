@@ -2882,42 +2882,6 @@ None.
 
 #### Lessons Learned
 
-### Epic 9 Completion Report
-#### Summary
-Implemented the Dashboard aggregation service (Epic 9) including overview with proficiency blend formula (40% item mastery / 60% writing performance), pending-approvals count, and VaultWatcher health status. Created mastery_by_category() with decayed scores weighted by review_count. Built trend_series() for quiz accuracy, writing 5-dimension scores, and items-learned per week. Created REST API endpoints including Item Browser with FTS5 search. Built frontend hooks (useOverview, useMasteryBreakdown, useTrends, useItems) each independently fetched. Created ProficiencyCard, MasteryBreakdownChart, and TrendChart components using single mastery color gradient per PRD Section 20.3. DashboardPage composes three independent hooks for progressive rendering. All 4 integration tests pass.
-
-#### Files Created
-- `backend/app/dashboard/service.py` - DashboardService with overview(), mastery_by_category(), trend_series()
-- `backend/app/dashboard/router.py` - REST endpoints: /dashboard/overview, /dashboard/mastery-breakdown, /dashboard/trends, /dashboard/items
-- `backend/tests/integration/test_dashboard_service.py` - 4 integration tests
-- `frontend/src/features/dashboard/hooks/index.ts` - Hook exports
-- `frontend/src/features/dashboard/hooks/useOverview.ts` - useOverview hook
-- `frontend/src/features/dashboard/hooks/useMasteryBreakdown.ts` - useMasteryBreakdown hook
-- `frontend/src/features/dashboard/hooks/useTrends.ts` - useTrends hook
-- `frontend/src/features/dashboard/hooks/useItems.ts` - useItems hook for item browser
-- `frontend/src/features/dashboard/components/ProficiencyCard.tsx` - Proficiency display card
-- `frontend/src/features/dashboard/components/MasteryBreakdownChart.tsx` - Recharts bar chart for category mastery
-- `frontend/src/features/dashboard/components/TrendChart.tsx` - Recharts line chart for quiz/writing trends
-- `frontend/src/features/dashboard/components/index.ts` - Component exports
-- `frontend/src/features/dashboard/DashboardPage.tsx` - Dashboard page composing all hooks
-
-#### Files Modified
-- `backend/app/main.py` - Added dashboard router
-- `frontend/src/api/types.ts` - Added DashboardOverview, CategoryMastery, TrendData, LearningItemBrowser types
-- `frontend/src/api/client.ts` - Added getMasteryBreakdown, getTrends, getItems API functions
-- `frontend/package.json` - Added recharts dependency
-
-#### Important Decisions
-- PRD Section 17.4: Proficiency blend 40% item mastery / 60% writing performance (configurable)
-- ADR-04: Decay applied at read-time, never stored
-- Review-count weighting for category mastery aggregation
-- FTS5 text search combined with item_type/tag/mastery-range filters for Item Browser
-- Single mastery color gradient (not stoplight) per PRD Section 20.3
-- Independent query hooks for progressive rendering per ARCHITECTURE Section 6.6
-
-#### Deviations
-None.
-
 ## Epic 9: Dashboard
 
 - Status: Completed
@@ -3235,13 +3199,36 @@ None.
 
 ### Epic Completion Report
 #### Summary
-What was implemented.
+Implemented the Dashboard aggregation service (Epic 9) including overview with proficiency blend formula (40% item mastery / 60% writing performance), pending-approvals count, and VaultWatcher health status. Created mastery_by_category() with decayed scores weighted by review_count. Built trend_series() for quiz accuracy, writing 5-dimension scores, and items-learned per week. Created REST API endpoints including Item Browser with FTS5 search. Built frontend hooks (useOverview, useMasteryBreakdown, useTrends, useItems) each independently fetched. Created ProficiencyCard, MasteryBreakdownChart, and TrendChart components using single mastery color gradient per PRD Section 20.3. DashboardPage composes three independent hooks for progressive rendering. All 4 integration tests pass.
 
 #### Files Created
+- `backend/app/dashboard/service.py` - DashboardService with overview(), mastery_by_category(), trend_series()
+- `backend/app/dashboard/router.py` - REST endpoints: /dashboard/overview, /dashboard/mastery-breakdown, /dashboard/trends, /dashboard/items
+- `backend/tests/integration/test_dashboard_service.py` - 4 integration tests
+- `frontend/src/features/dashboard/hooks/index.ts` - Hook exports
+- `frontend/src/features/dashboard/hooks/useOverview.ts` - useOverview hook
+- `frontend/src/features/dashboard/hooks/useMasteryBreakdown.ts` - useMasteryBreakdown hook
+- `frontend/src/features/dashboard/hooks/useTrends.ts` - useTrends hook
+- `frontend/src/features/dashboard/hooks/useItems.ts` - useItems hook for item browser
+- `frontend/src/features/dashboard/components/ProficiencyCard.tsx` - Proficiency display card
+- `frontend/src/features/dashboard/components/MasteryBreakdownChart.tsx` - Recharts bar chart for category mastery
+- `frontend/src/features/dashboard/components/TrendChart.tsx` - Recharts line chart for quiz/writing trends
+- `frontend/src/features/dashboard/components/index.ts` - Component exports
+- `frontend/src/features/dashboard/DashboardPage.tsx` - Dashboard page composing all hooks
 
 #### Files Modified
+- `backend/app/main.py` - Added dashboard router
+- `frontend/src/api/types.ts` - Added DashboardOverview, CategoryMastery, TrendData, LearningItemBrowser types
+- `frontend/src/api/client.ts` - Added getMasteryBreakdown, getTrends, getItems API functions
+- `frontend/package.json` - Added recharts dependency
 
 #### Important Decisions
+- PRD Section 17.4: Proficiency blend 40% item mastery / 60% writing performance (configurable)
+- ADR-04: Decay applied at read-time, never stored
+- Review-count weighting for category mastery aggregation
+- FTS5 text search combined with item_type/tag/mastery-range filters for Item Browser
+- Single mastery color gradient (not stoplight) per PRD Section 20.3
+- Independent query hooks for progressive rendering per ARCHITECTURE Section 6.6
 
 #### Deviations
 None.
@@ -3252,10 +3239,10 @@ None.
 
 ## Epic 10: Backup & Settings
 
-- Status: Not Started
+- Status: Completed
 - Branch Name: `epic/10-backup-settings`
-- Start Date: TBD
-- Completion Date: TBD
+- Start Date: 2026-07-18
+- Completion Date: 2026-07-18
 
 ### Epic Execution Notes
 - Implement this epic in a single execution session unless a blocker requires a pause.
@@ -3533,6 +3520,37 @@ None.
 #### Known Issues
 
 #### Lessons Learned
+
+### Epic 10 Completion Report
+
+**Implementation Summary:**
+Implemented a complete backup and settings system for the Praxis application, enabling automatic database backups with configurable rotation (14 daily + 6 monthly snapshots) and a runtime-configurable settings service for adjustable parameters.
+
+**Files Created:**
+- `backend/app/backup/service.py` - Backup service with perform_backup(), rotate(), check_and_backup_if_needed(), list_backups(), and restore()
+- `backend/app/config_service.py` - Configuration CRUD service for runtime-adjustable parameters
+- `backend/app/settings/router.py` - Settings API router (GET/PUT config, backup list, restore)
+- `backend/app/settings/__init__.py` - Settings module init
+- `backend/tests/integration/test_backup_service.py` - Integration tests for backup/restore/health recovery
+
+**Files Modified:**
+- `backend/app/main.py` - Added settings router, backup check in lifespan, extended /health with corrupted-DB recovery
+- `backend/app/approvals/service.py` - Added post-commit backup hook after approve/reject
+- `backend/app/config.py` - Added backup_retention_daily and backup_retention_monthly config options
+
+**Key Implementation Details:**
+- Used SQLite's online backup API (`connection.backup()`) for consistent snapshots
+- Backup service is idempotent - checks last backup timestamp and only creates new backup if > 24 hours old
+- Wiring into FastAPI lifespan ensures backup on startup; post-commit hook ensures backup after approvals
+- /health endpoint now detects corrupted databases and offers restore from most recent backup
+- ConfigService provides CRUD for 12 configurable parameters: decay_rate, correct_threshold, mastery values, category_balance_ratio, proficiency blend weights, backup retention counts
+
+**Test Results:**
+- 11 new tests for backup service all pass
+- All 159 existing tests continue to pass
+
+**Deviations:**
+None.
 
 ## Epic 11: Polish, Edge Cases & QA Hardening
 

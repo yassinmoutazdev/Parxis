@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from app.backup.service import BackupService
 from app.db.engine import Session
 from app.db.models.approval import ApprovalQueue, ApprovalStatus
 from app.db.models.learning_correction import LearningCorrection
@@ -154,6 +155,12 @@ class ApprovalService:
             # Commit the transaction
             session.commit()
 
+            # Post-commit: check and backup if needed (idempotent)
+            try:
+                BackupService.check_and_backup_if_needed()
+            except Exception as e:
+                logger.warning(f"Post-commit backup check failed: {e}")
+
             logger.info(
                 f"Approved approval {approval_id}, created {item_type or 'LearningCorrection'} with id {created_id}"
             )
@@ -196,5 +203,11 @@ class ApprovalService:
 
             # Commit the transaction
             session.commit()
+
+            # Post-commit: check and backup if needed (idempotent)
+            try:
+                BackupService.check_and_backup_if_needed()
+            except Exception as e:
+                logger.warning(f"Post-commit backup check failed: {e}")
 
             logger.info(f"Rejected approval {approval_id}")
