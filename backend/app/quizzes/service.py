@@ -185,8 +185,13 @@ class QuizService:
                 output_schema=QuizQuestionOutput,
             )
 
-            # Validate the output
-            validate_output(result, QuizQuestionOutput)
+            # Validate the output (returns tuple, unpack it)
+            result, warnings = validate_output(task, result)
+
+            # If validation failed (result is None), skip this item
+            if result is None:
+                logger.warning(f"Question validation failed for item {item.id}: {warnings}")
+                return None
 
             # Create the QuizQuestion row
             question = QuizQuestion(

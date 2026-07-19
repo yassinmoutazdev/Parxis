@@ -281,7 +281,7 @@ class WritingService:
 
         return {
             "submission_text": text,
-            "weak_categories": ", ".join(weak_categories) if weak_categories else "general writing",
+            "focus_areas": ", ".join(weak_categories) if weak_categories else "general writing",
             "known_relevant_items": "\n".join(
                 f"- {item['text']}: {item['definition']}"
                 for item in known_relevant_items_formatted
@@ -320,8 +320,8 @@ class WritingService:
                 output_schema=MiniWritingEvalOutput,
             )
 
-            # Validate output
-            result = validate_output(TaskType.MINI_WRITING_EVAL, result)
+            # Validate output (returns tuple, unpack it)
+            result, _ = validate_output(TaskType.MINI_WRITING_EVAL, result)
 
         except Exception as e:
             logger.error(f"Mini writing evaluation failed: {e}")

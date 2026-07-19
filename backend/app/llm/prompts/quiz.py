@@ -42,7 +42,7 @@ Learning Item:
 
 Generate the question in JSON format:
 {{
-    "prompt_text": "The phrase [blank] means: {definition}",
+    "prompt_text": "The phrase ___ means: {item_definition}",
     "correct_answer": "{item_text}"
 }}
 
