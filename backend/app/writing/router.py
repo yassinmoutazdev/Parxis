@@ -14,7 +14,7 @@ from app.writing.service import WritingService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/writing", tags=["writing"])
+router = APIRouter(prefix="/api/writing", tags=["writing"])
 
 
 class WritingPromptResponse(BaseModel):

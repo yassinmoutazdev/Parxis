@@ -106,6 +106,26 @@ class OllamaAdapter:
             output_schema=output_schema,
         )
 
+    def generate_sync(
+        self,
+        task: str,
+        context: dict[str, Any],
+        output_schema: type[BaseModel],
+    ) -> BaseModel:
+        """Synchronous wrapper for generate.
+
+        Args:
+            task: The task identifier
+            context: Context data for the generation task
+            output_schema: Pydantic model class defining the expected output structure
+
+        Returns:
+            An instance of the output_schema with generated content
+        """
+        import asyncio
+
+        return asyncio.run(self.generate(task, context, output_schema))
+
     async def evaluate(
         self,
         task: str,

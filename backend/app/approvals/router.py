@@ -18,7 +18,7 @@ from app.db.models.approval import ApprovalQueue, ApprovalStatus
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/approvals", tags=["approvals"])
+router = APIRouter(prefix="/api/approvals", tags=["approvals"])
 
 
 class ApprovalResponse(BaseModel):

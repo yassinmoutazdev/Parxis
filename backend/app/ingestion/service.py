@@ -112,12 +112,14 @@ class IngestionService:
 
         for attempt in range(cls.MAX_PARSE_RETRIES + 1):
             try:
-                # Call the generator
-                result = ollama_adapter.ollama_adapter.generate(
+                # Call the generator (sync wrapper)
+                result = ollama_adapter.ollama_adapter.generate_sync(
                     task=TaskType.PARSE_NOTE,
                     context=context,
                     output_schema=ParsedNoteOutput,
                 )
+
+                logger.info(f"LLM result type: {type(result)}, value: {result}")
 
                 # Validate the output
                 validated_result, warnings = validate_output(
@@ -125,6 +127,8 @@ class IngestionService:
                     output=result,
                     context={"note_content": content},
                 )
+
+                logger.info(f"Validation result type: {type(validated_result)}")
 
                 if warnings:
                     logger.warning(
@@ -213,21 +217,40 @@ class IngestionService:
         from app.db.engine import Session
         from app.db.models.approval import ApprovalQueue, ApprovalSourceType
 
-        # Get similar items for duplicate detection
-        existing_items = cls._find_similar_items(parsed_output)
-
         with Session() as session:
+            # Get existing pending approvals from this note to avoid duplicates
+            existing_texts = set(
+                row[0]
+                for row in session.query(ApprovalQueue.extracted_text)
+                .filter(
+                    ApprovalQueue.source_id == note_id,
+                    ApprovalQueue.source_type == ApprovalSourceType.NOTE_PARSE,
+                    ApprovalQueue.status == "PENDING",
+                )
+                .all()
+            )
+
+            # Get similar items for duplicate detection against approved items
+            existing_items = cls._find_similar_items(parsed_output)
+
+            new_entries_count = 0
+            skipped_count = 0
+
             for item in parsed_output.items:
-                # Check for potential duplicate
+                # Skip if already in pending approvals for this note
+                if item.text in existing_texts:
+                    skipped_count += 1
+                    continue
+
+                # Check for potential duplicate against existing learning items
                 possible_duplicate_of = None
                 if existing_items:
-                    # Find best match
                     for existing in existing_items:
                         if cls._is_potential_duplicate(item.text, existing.text):
                             possible_duplicate_of = existing.id
                             break
 
-                # Create approval queue entry using actual model fields
+                # Create approval queue entry
                 queue_entry = ApprovalQueue(
                     source_type=ApprovalSourceType.NOTE_PARSE,
                     source_id=note_id,
@@ -239,10 +262,14 @@ class IngestionService:
                     possible_duplicate_of=possible_duplicate_of,
                 )
                 session.add(queue_entry)
+                new_entries_count += 1
 
             session.commit()
 
-        logger.info(f"Created {len(parsed_output.items)} approval queue entries")
+        logger.info(
+            f"Created {new_entries_count} approval queue entries, "
+            f"skipped {skipped_count} duplicates"
+        )
 
     @classmethod
     def _find_similar_items(

@@ -5,19 +5,21 @@ Corresponds to ARCHITECTURE Section 7.3 (FTS5).
 
 import logging
 
+from sqlalchemy import text
+
 from app.db.engine import Session
 from app.db.models.learning_item import LearningItem
 
 logger = logging.getLogger(__name__)
 
 
-def find_similar(text: str, limit: int = 5) -> list[LearningItem]:
+def find_similar(search_text: str, limit: int = 5) -> list[LearningItem]:
     """Find similar learning items using FTS5 with BM25 ranking.
 
     Corresponds to ARCHITECTURE Section 7.3 (FTS5 MATCH query).
 
     Args:
-        text: The text to search for
+        search_text: The text to search for
         limit: Maximum number of results to return
 
     Returns:
@@ -37,10 +39,10 @@ def find_similar(text: str, limit: int = 5) -> list[LearningItem]:
         """)
 
         # Escape special FTS5 characters and prepare search term
-        search_term = _prepare_fts5_query(text)
+        search_term = _prepare_fts5_query(search_text)
 
         if not search_term:
-            logger.debug(f"Empty search term after preparation for: {text}")
+            logger.debug(f"Empty search term after preparation for: {search_text}")
             return []
 
         try:
@@ -50,7 +52,7 @@ def find_similar(text: str, limit: int = 5) -> list[LearningItem]:
             rows = result.fetchall()
 
             if not rows:
-                logger.debug(f"No FTS matches found for: {text}")
+                logger.debug(f"No FTS matches found for: {search_text}")
                 return []
 
             # Fetch the actual LearningItem objects

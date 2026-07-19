@@ -13,7 +13,7 @@ from app.dashboard.service import DashboardService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 class OverviewResponse(BaseModel):

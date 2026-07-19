@@ -139,7 +139,8 @@ class VaultWatcher:
         # Import here to avoid circular imports
         from app.db.engine import Session
         from app.db.models.note import Note
-        from app.db.models.system import NoteStatus
+        from app.db.models.note import NoteStatus
+        from app.db.models.source import Lesson  # Needed for Note.lesson_id FK
         from app.ingestion.service import IngestionService
 
         logger.info(f"Handling event for: {path}")
@@ -164,9 +165,11 @@ class VaultWatcher:
 
             if note:
                 # Check if content changed
+                logger.info(f"DB hash: {note.content_hash}, computed: {content_hash}")
                 if note.content_hash == content_hash:
-                    logger.debug(f"Content unchanged for: {path}")
+                    logger.info(f"Content unchanged for: {path}")
                     return
+                logger.info(f"Note exists with status {note.status}, processing...")
 
                 # Check if already processed - write-once model
                 if note.status == NoteStatus.PROCESSED:

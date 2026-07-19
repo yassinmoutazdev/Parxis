@@ -8,6 +8,20 @@ from sqlmodel import SQLModel
 
 from app.config import settings
 
+# Import all models to register them with SQLModel.metadata
+from app.db.models import (
+    approval,
+    learning_correction,
+    learning_item,
+    note,
+    performance_error,
+    quiz,
+    report,
+    source,
+    system,
+    writing,
+)
+
 
 def create_db_engine():
     """Create the SQLModel engine with WAL mode and foreign keys enabled."""

@@ -17,7 +17,7 @@ from app.writing.service import WritingService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/reports", tags=["reports"])
+router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 class WeeklyReportResponse(BaseModel):

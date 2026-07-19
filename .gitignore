@@ -52,4 +52,7 @@ Thumbs.db
 *.local
 # Database
 *.db
-data/*.db
+data/
+
+# Local docs
+docs/SETUP_GUIDE.md

@@ -13,7 +13,7 @@ from app.quizzes.service import QuizService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/quizzes", tags=["quizzes"])
+router = APIRouter(prefix="/api/quizzes", tags=["quizzes"])
 
 
 class StartQuizRequest(BaseModel):
