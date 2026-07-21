@@ -7,6 +7,7 @@ export interface QuizQuestionState {
   question_type: QuizMode
   prompt: string
   correct_answer: string | null
+  distractors: string[] | null
 }
 
 export interface QuizSessionState {

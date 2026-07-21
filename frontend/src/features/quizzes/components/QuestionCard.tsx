@@ -5,6 +5,7 @@ interface QuestionCardProps {
   id: number
   questionType: QuizMode
   prompt: string
+  distractors?: string[] | null
   userAnswer?: string
   isCorrect?: boolean | null
   score?: number | null
@@ -17,6 +18,7 @@ export function QuestionCard({
   id,
   questionType,
   prompt,
+  distractors,
   userAnswer = '',
   isCorrect,
   score,
@@ -78,7 +80,34 @@ export function QuestionCard({
         )
 
       case 'MULTIPLE_CHOICE':
-        // Would need distractors - simplified here
+        if (distractors && distractors.length > 0) {
+          // Render radio buttons with options
+          const allOptions = [prompt.match(/\[blank\](.*)$/)?.[1]?.trim() || '', ...distractors]
+            .filter(Boolean)
+            .sort(() => Math.random() - 0.5)
+
+          return (
+            <div className="multiple-choice-input">
+              {allOptions.map((option, index) => (
+                <label key={index} className={`option ${answer === option ? 'selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name={`question-${id}`}
+                    value={option}
+                    checked={answer === option}
+                    onChange={(e) => {
+                      setAnswer(e.target.value)
+                      onAnswer(id, e.target.value)
+                    }}
+                    disabled={readOnly}
+                  />
+                  {option}
+                </label>
+              ))}
+            </div>
+          )
+        }
+        // Fallback to text input if no distractors
         return (
           <div className="text-input">
             <input

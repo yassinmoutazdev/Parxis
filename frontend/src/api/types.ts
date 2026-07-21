@@ -112,6 +112,7 @@ export interface QuizQuestion {
   question_type: QuizMode
   prompt: string
   correct_answer: string | null
+  distractors: string[] | null
   user_answer: string | null
   is_correct: boolean | null
   score: number | null

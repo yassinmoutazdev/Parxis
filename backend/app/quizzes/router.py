@@ -116,7 +116,7 @@ async def start_quiz(request: StartQuizRequest) -> QuizSessionResponse:
                     question_type=q.question_type,
                     prompt=q.prompt,
                     correct_answer=None,  # Don't send correct answer to frontend
-                    distractors=None,  # TODO: include if available
+                    distractors=q.distractors_json,
                 )
                 for q in questions
             ],

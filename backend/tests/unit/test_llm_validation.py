@@ -152,7 +152,7 @@ class TestValidateQuizQuestion:
     def test_fill_blank_valid(self):
         """Valid fill_blank passes."""
         output = QuizQuestionOutput(
-            prompt_text="The phrase ___ means something",
+            prompt_text="The phrase [blank] means something",
             correct_answer="test phrase",
         )
 
@@ -162,16 +162,16 @@ class TestValidateQuizQuestion:
         assert len(warnings) == 0
 
     def test_fill_blank_missing_marker(self):
-        """Missing ___ marker fails."""
+        """Missing [blank] marker fails."""
         output = QuizQuestionOutput(
-            prompt_text="The phrase is missing",  # No ___
+            prompt_text="The phrase is missing",  # No [blank]
             correct_answer="test phrase",
         )
 
         result, warnings = validate_quiz_question(output, "quiz_fill_blank")
 
         assert result is None
-        assert "___ marker" in warnings[0]
+        assert "[blank] marker" in warnings[0]
 
     def test_error_correction_valid(self):
         """Valid error_correction passes."""

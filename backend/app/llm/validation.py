@@ -107,9 +107,9 @@ def validate_quiz_question(
                     return None, warnings
 
     elif quiz_mode == "quiz_fill_blank":
-        # fill_blank: must contain ___ marker
-        if "___" not in output.prompt_text:
-            warnings.append("fill_blank prompt must contain ___ marker")
+        # fill_blank: must contain [blank] marker
+        if "[blank]" not in output.prompt_text:
+            warnings.append("fill_blank prompt must contain [blank] marker")
             return None, warnings
 
     elif quiz_mode == "quiz_error_correction":

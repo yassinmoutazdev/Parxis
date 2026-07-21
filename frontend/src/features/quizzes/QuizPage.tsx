@@ -112,6 +112,7 @@ export default function QuizPage() {
         id={currentQuestion.id}
         questionType={currentQuestion.question_type}
         prompt={currentQuestion.prompt}
+        distractors={currentQuestion.distractors}
         userAnswer={currentAnswer}
         onAnswer={handleAnswer}
       />

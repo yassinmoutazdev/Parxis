@@ -3,8 +3,11 @@
 Corresponds to ARCHITECTURE Section 6.3 (Quiz Generation & Grading).
 """
 
+import logging
 import random
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from app.db.engine import Session
 from app.db.models.learning_item import LearningItem
@@ -200,6 +203,7 @@ class QuizService:
                 question_type=question_mode,
                 prompt=result.prompt_text,
                 correct_answer=result.correct_answer,
+                distractors_json=result.distractors,
             )
             session.add(question)
             session.flush()
@@ -389,7 +393,7 @@ class QuizService:
         )
 
         # Validate and clamp the score
-        validate_output(result, GradedAnswerOutput)
+        result, _ = validate_output("grade_quiz_answer", result)
         score = max(0.0, min(1.0, result.score))
 
         # Determine if correct based on threshold
