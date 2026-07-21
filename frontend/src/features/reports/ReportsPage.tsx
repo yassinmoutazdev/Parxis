@@ -102,14 +102,14 @@ export default function ReportsPage() {
     return (
       <div className="px-4 py-6 sm:px-0">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Weekly Reports</h1>
+          <h1 className="font-serif text-2xl text-ink mb-6">Weekly Reports</h1>
 
           {/* Start New Review Button */}
           <div className="mb-8">
             <button
               onClick={handleStartReview}
               disabled={weeklyReview.loading}
-              className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
+              className="w-full md:w-auto px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:bg-border-strong"
             >
               {weeklyReview.loading ? 'Loading...' : 'Start Weekly Review'}
             </button>
@@ -117,11 +117,11 @@ export default function ReportsPage() {
 
           {/* Past Reports */}
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Past Reports</h2>
+            <h2 className="text-lg font-semibold text-ink mb-4">Past Reports</h2>
             {reports.loading ? (
-              <p className="text-gray-500">Loading reports...</p>
+              <p className="text-ink-muted">Loading reports...</p>
             ) : reports.reports.length === 0 ? (
-              <p className="text-gray-500">No reports yet. Start a weekly review to generate your first report.</p>
+              <p className="text-ink-muted">No reports yet. Start a weekly review to generate your first report.</p>
             ) : (
               <div className="space-y-4">
                 {reports.reports.map((report) => (
@@ -142,7 +142,7 @@ export default function ReportsPage() {
         {/* Back button */}
         <button
           onClick={handleBack}
-          className="mb-4 text-gray-600 hover:text-gray-900 flex items-center gap-1"
+          className="mb-4 text-ink-muted hover:text-ink flex items-center gap-1"
         >
           ← Back
         </button>
@@ -157,11 +157,11 @@ export default function ReportsPage() {
         {/* Quiz Step */}
         {step === 'quiz' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            <h2 className="text-xl font-semibold text-ink mb-4">
               Weekly Quiz - {weeklyReview.reviewState.weekStart} to {weeklyReview.reviewState.weekEnd}
             </h2>
-            <div className="bg-white rounded-lg shadow p-6 mb-4">
-              <p className="text-gray-600 mb-4">
+            <div className="bg-surface rounded-lg shadow p-6 mb-4">
+              <p className="text-ink-muted mb-4">
                 Complete your weekly quiz to assess your progress.
               </p>
               {weeklyQuiz.quizState.questions.length > 0 ? (
@@ -169,10 +169,10 @@ export default function ReportsPage() {
                   {weeklyQuiz.quizState.questions.map((q, i) => (
                     <div key={q.id} className="border-b pb-4">
                       <p className="font-medium mb-2">Question {i + 1}</p>
-                      <p className="text-gray-700">{q.prompt}</p>
+                      <p className="text-ink">{q.prompt}</p>
                     </div>
                   ))}
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-muted">
                     (Quiz answers would be collected here in a full implementation)
                   </p>
                 </div>
@@ -180,7 +180,7 @@ export default function ReportsPage() {
                 <button
                   onClick={handleStartQuiz}
                   disabled={weeklyQuiz.loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover"
                 >
                   {weeklyQuiz.loading ? 'Starting...' : 'Start Quiz'}
                 </button>
@@ -200,33 +200,33 @@ export default function ReportsPage() {
         {/* Writing Step */}
         {step === 'writing' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Weekly Writing</h2>
-            <div className="bg-white rounded-lg shadow p-6 mb-4">
+            <h2 className="text-xl font-semibold text-ink mb-4">Weekly Writing</h2>
+            <div className="bg-surface rounded-lg shadow p-6 mb-4">
               {!weeklyWriting.writingState.promptId ? (
                 <button
                   onClick={handleStartWriting}
                   disabled={weeklyWriting.loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover"
                 >
                   {weeklyWriting.loading ? 'Loading...' : 'Get Writing Prompt'}
                 </button>
               ) : (
                 <div>
-                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 className="font-medium text-gray-900 mb-2">Topic</h3>
-                    <p className="text-gray-700">{weeklyWriting.writingState.promptTopic}</p>
+                  <div className="mb-4 p-4 bg-accent-tint border border-accent/30 rounded-lg">
+                    <h3 className="font-medium text-ink mb-2">Topic</h3>
+                    <p className="text-ink">{weeklyWriting.writingState.promptTopic}</p>
                   </div>
 
                   {!weeklyWriting.writingState.evaluation && (
                     <div>
                       <textarea
-                        className="w-full h-48 p-4 border border-gray-300 rounded-lg resize-none"
+                        className="w-full h-48 p-4 bg-surface text-ink placeholder:text-ink-faint border border-border-strong rounded-lg resize-none"
                         placeholder="Write your response here..."
                       />
                       <button
                         onClick={() => handleSubmitWriting('Sample writing text')}
                         disabled={weeklyWriting.loading}
-                        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="mt-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover"
                       >
                         {weeklyWriting.loading ? 'Submitting...' : 'Submit'}
                       </button>
@@ -236,7 +236,7 @@ export default function ReportsPage() {
                   {weeklyWriting.writingState.evaluation && (
                     <div>
                       <div className="mb-4">
-                        <h4 className="font-medium text-gray-700 mb-2">Scores</h4>
+                        <h4 className="font-medium text-ink mb-2">Scores</h4>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>Grammar: {weeklyWriting.writingState.evaluation.grammar_score}%</div>
                           <div>Naturalness: {weeklyWriting.writingState.evaluation.naturalness_score}%</div>
@@ -265,14 +265,14 @@ export default function ReportsPage() {
         {/* Complete Step */}
         {step === 'complete' && currentReport && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Weekly Review Complete!</h2>
-            <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-gray-600 mb-4">
+            <h2 className="text-xl font-semibold text-ink mb-4">Weekly Review Complete!</h2>
+            <div className="bg-surface rounded-lg shadow p-6">
+              <p className="text-ink-muted mb-4">
                 Your weekly report has been generated. View it in the archive below.
               </p>
               <button
                 onClick={handleBack}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover"
               >
                 View All Reports
               </button>

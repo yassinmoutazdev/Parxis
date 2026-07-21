@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { Card, CardContent, CardHeader } from '../../../shared/components/Card'
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner'
 import { EmptyState } from '../../../shared/components/EmptyState'
+import { masteryStop } from '../../../shared/utils/masteryColor'
 import type { CategoryMastery } from '../../../api/types'
 
 interface MasteryBreakdownChartProps {
@@ -12,14 +13,9 @@ interface MasteryBreakdownChartProps {
   error?: Error | null
 }
 
-// Single mastery color gradient per PRD Section 20.3
-const COLORS = ['#ea580c', '#d97706', '#0284c7', '#4f46e5'] // orange-600, amber-600, blue-600, indigo-600
-
+// PRD Section 20.3: single mastery color gradient, not a categorical palette
 function getBarColor(masteryScore: number): string {
-  if (masteryScore < 0.3) return COLORS[0] // orange
-  if (masteryScore < 0.5) return COLORS[1] // amber
-  if (masteryScore < 0.7) return COLORS[2] // blue
-  return COLORS[3] // indigo
+  return masteryStop(masteryScore).hex
 }
 
 function formatCategory(category: string): string {
@@ -32,7 +28,7 @@ export function MasteryBreakdownChart({ data, isLoading, error }: MasteryBreakdo
     return (
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Mastery by Category</h2>
+          <h2 className="font-serif text-lg text-ink">Mastery by Category</h2>
         </CardHeader>
         <CardContent>
           <LoadingSpinner />
@@ -45,7 +41,7 @@ export function MasteryBreakdownChart({ data, isLoading, error }: MasteryBreakdo
     return (
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Mastery by Category</h2>
+          <h2 className="font-serif text-lg text-ink">Mastery by Category</h2>
         </CardHeader>
         <CardContent>
           <p className="text-red-600">Failed to load mastery data</p>
@@ -58,7 +54,7 @@ export function MasteryBreakdownChart({ data, isLoading, error }: MasteryBreakdo
     return (
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Mastery by Category</h2>
+          <h2 className="font-serif text-lg text-ink">Mastery by Category</h2>
         </CardHeader>
         <CardContent>
           <EmptyState
@@ -81,8 +77,8 @@ export function MasteryBreakdownChart({ data, isLoading, error }: MasteryBreakdo
   return (
     <Card>
       <CardHeader>
-        <h2 className="text-lg font-semibold text-gray-900">Mastery by Category</h2>
-        <p className="text-sm text-gray-500">
+        <h2 className="font-serif text-lg text-ink">Mastery by Category</h2>
+        <p className="text-sm text-ink-muted">
           Weighted by review count, decayed
         </p>
       </CardHeader>
@@ -90,8 +86,8 @@ export function MasteryBreakdownChart({ data, isLoading, error }: MasteryBreakdo
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
-              <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-              <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 12 }} />
+              <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fill: '#ACA99F' }} />
+              <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 12, fill: "#ACA99F" }} />
               <Tooltip
                 formatter={(value) => {
                   const num = typeof value === 'number' ? value : 0
@@ -102,11 +98,11 @@ export function MasteryBreakdownChart({ data, isLoading, error }: MasteryBreakdo
                   if (!payload || payload.length === 0) return null
                   const data = payload[0].payload
                   return (
-                    <div className="bg-white p-3 border border-gray-200 rounded shadow-sm">
+                    <div className="bg-surface p-3 border border-border rounded-lg">
                       <p className="font-medium">{data.name}</p>
-                      <p className="text-sm text-gray-500">Mastery: {data.mastery.toFixed(1)}%</p>
-                      <p className="text-sm text-gray-500">Items: {data.count}</p>
-                      <p className="text-sm text-gray-500">Reviews: {data.reviews}</p>
+                      <p className="text-sm text-ink-muted">Mastery: {data.mastery.toFixed(1)}%</p>
+                      <p className="text-sm text-ink-muted">Items: {data.count}</p>
+                      <p className="text-sm text-ink-muted">Reviews: {data.reviews}</p>
                     </div>
                   )
                 }}
@@ -121,22 +117,18 @@ export function MasteryBreakdownChart({ data, isLoading, error }: MasteryBreakdo
         </div>
 
         {/* Legend */}
-        <div className="mt-4 flex items-center gap-4 text-sm text-gray-500">
+        <div className="mt-4 flex items-center gap-4 text-sm text-ink-muted">
           <div className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-orange-600" />
-            <span>0-30%</span>
+            <span className="w-3 h-3 rounded" style={{ backgroundColor: getBarColor(0.15) }} />
+            <span>0-33%</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-amber-600" />
-            <span>30-50%</span>
+            <span className="w-3 h-3 rounded" style={{ backgroundColor: getBarColor(0.5) }} />
+            <span>33-67%</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-blue-600" />
-            <span>50-70%</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-3 h-3 rounded bg-indigo-600" />
-            <span>70-100%</span>
+            <span className="w-3 h-3 rounded" style={{ backgroundColor: getBarColor(0.85) }} />
+            <span>67-100%</span>
           </div>
         </div>
       </CardContent>

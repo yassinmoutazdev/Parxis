@@ -46,14 +46,14 @@ function MiniFeedback({
       {score !== null && (
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Mini Writing Evaluation</h3>
-          <span className="text-2xl font-bold text-blue-600">{score}%</span>
+          <span className="text-2xl font-bold text-accent-text">{score}%</span>
         </div>
       )}
 
       {/* Corrections */}
       {corrections.length > 0 && (
         <div className="space-y-3">
-          <h4 className="font-medium text-gray-700">Corrections</h4>
+          <h4 className="font-medium text-ink">Corrections</h4>
           {corrections.map((correction, index) => (
             <div
               key={index}
@@ -63,13 +63,13 @@ function MiniFeedback({
                 <span className="line-through text-red-600 font-medium">
                   {correction.wrong}
                 </span>
-                <span className="text-gray-400">→</span>
+                <span className="text-ink-faint">→</span>
                 <span className="text-green-600 font-medium">
                   {correction.correct}
                 </span>
               </div>
               {correction.explanation && (
-                <p className="mt-2 text-sm text-gray-600">
+                <p className="mt-2 text-sm text-ink-muted">
                   {correction.explanation}
                 </p>
               )}
@@ -81,12 +81,12 @@ function MiniFeedback({
       {/* Naturalness Notes */}
       {naturalnessNotes.length > 0 && (
         <div className="space-y-3">
-          <h4 className="font-medium text-gray-700">Naturalness Notes</h4>
+          <h4 className="font-medium text-ink">Naturalness Notes</h4>
           <ul className="space-y-2">
             {naturalnessNotes.map((note, index) => (
               <li
                 key={index}
-                className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-gray-700"
+                className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-ink"
               >
                 {note}
               </li>
@@ -97,7 +97,7 @@ function MiniFeedback({
 
       {/* No corrections message */}
       {corrections.length === 0 && naturalnessNotes.length === 0 && (
-        <p className="text-gray-500">No corrections or notes for this submission.</p>
+        <p className="text-ink-muted">No corrections or notes for this submission.</p>
       )}
     </div>
   )
@@ -124,14 +124,14 @@ function WeeklyFeedback({ evaluation }: { evaluation: WritingEvaluation }) {
   ]
 
   const getScoreColor = (score: number | null) => {
-    if (score === null) return 'text-gray-400'
+    if (score === null) return 'text-ink-faint'
     if (score >= 80) return 'text-green-600'
     if (score >= 60) return 'text-yellow-600'
     return 'text-red-600'
   }
 
   const getScoreBgColor = (score: number | null) => {
-    if (score === null) return 'bg-gray-100'
+    if (score === null) return 'bg-cream-100'
     if (score >= 80) return 'bg-green-100'
     if (score >= 60) return 'bg-yellow-100'
     return 'bg-red-100'
@@ -143,7 +143,7 @@ function WeeklyFeedback({ evaluation }: { evaluation: WritingEvaluation }) {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Weekly Writing Evaluation</h3>
         {evaluation.overall_score !== null && (
-          <span className="text-3xl font-bold text-blue-600">
+          <span className="text-3xl font-bold text-accent-text">
             {Math.round(evaluation.overall_score)}%
           </span>
         )}
@@ -157,13 +157,13 @@ function WeeklyFeedback({ evaluation }: { evaluation: WritingEvaluation }) {
             className={`p-4 rounded-lg ${getScoreBgColor(dim.score)}`}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="font-medium text-gray-700">{dim.label}</span>
+              <span className="font-medium text-ink">{dim.label}</span>
               <span className={`text-xl font-bold ${getScoreColor(dim.score)}`}>
                 {dim.score !== null ? Math.round(dim.score) : '—'}
               </span>
             </div>
             {dim.feedback && (
-              <p className="text-sm text-gray-600">{dim.feedback}</p>
+              <p className="text-sm text-ink-muted">{dim.feedback}</p>
             )}
           </div>
         ))}
@@ -172,8 +172,8 @@ function WeeklyFeedback({ evaluation }: { evaluation: WritingEvaluation }) {
       {/* Suggested Items */}
       {evaluation.suggested_items_json && evaluation.suggested_items_json.length > 0 && (
         <div className="space-y-3">
-          <h4 className="font-medium text-gray-700">Suggested Learning Items</h4>
-          <p className="text-sm text-gray-500">
+          <h4 className="font-medium text-ink">Suggested Learning Items</h4>
+          <p className="text-sm text-ink-muted">
             Review these items in the Approvals page to add them to your learning
             collection.
           </p>

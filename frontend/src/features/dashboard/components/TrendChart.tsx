@@ -24,16 +24,17 @@ interface TrendChartProps {
 
 type ChartTab = 'quiz' | 'writing'
 
-// Writing dimension colors - using the single mastery gradient palette
+// Writing dimensions are categorical (not a score gradient), so each gets
+// its own hue - kept muted and warm rather than saturated primary colors.
 const WRITING_COLORS = {
-  grammar: '#4f46e5',     // indigo-600
-  naturalness: '#0284c7', // blue-600
-  vocabulary: '#d97706', // amber-600
-  coherence: '#ea580c',  // orange-600
-  overall: '#16a34a',     // green-600
+  grammar: '#7F77DD',     // purple
+  naturalness: '#D85A30', // coral
+  vocabulary: '#EF9F27',  // amber
+  coherence: '#5DCAA5',   // teal
+  overall: '#3D3929',     // ink - the summary line should read as "the answer"
 }
 
-const QUIZ_COLOR = '#4f46e5' // indigo-600
+const QUIZ_COLOR = '#D97757' // accent
 
 function formatWeekLabel(dateStr: string): string {
   const date = new Date(dateStr)
@@ -47,7 +48,7 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
     return (
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Progress Trends</h2>
+          <h2 className="font-serif text-lg text-ink">Progress Trends</h2>
         </CardHeader>
         <CardContent>
           <LoadingSpinner />
@@ -60,7 +61,7 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
     return (
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Progress Trends</h2>
+          <h2 className="font-serif text-lg text-ink">Progress Trends</h2>
         </CardHeader>
         <CardContent>
           <p className="text-red-600">Failed to load trend data</p>
@@ -73,7 +74,7 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
     return (
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900">Progress Trends</h2>
+          <h2 className="font-serif text-lg text-ink">Progress Trends</h2>
         </CardHeader>
         <CardContent>
           <EmptyState
@@ -109,7 +110,7 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
   return (
     <Card>
       <CardHeader>
-        <h2 className="text-lg font-semibold text-gray-900">Progress Trends</h2>
+        <h2 className="font-serif text-lg text-ink">Progress Trends</h2>
 
         {/* Tab selector */}
         <div className="mt-2 flex gap-2">
@@ -117,8 +118,8 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
             onClick={() => setActiveTab('quiz')}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
               activeTab === 'quiz'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-accent text-white'
+                : 'bg-cream-100 text-ink-muted hover:text-ink'
             }`}
           >
             Quiz Accuracy
@@ -127,8 +128,8 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
             onClick={() => setActiveTab('writing')}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
               activeTab === 'writing'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-accent text-white'
+                : 'bg-cream-100 text-ink-muted hover:text-ink'
             }`}
           >
             Writing Scores
@@ -141,15 +142,18 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
             {hasQuizData ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={quizChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#3C3B37" />
+                  <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#ACA99F" }} />
+                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11, fill: "#ACA99F" }} />
                   <Tooltip
                     formatter={(value) => {
                       const num = typeof value === 'number' ? value : 0
                       return [`${num?.toFixed(1)}%`, 'Accuracy']
                     }}
                     labelFormatter={(label) => `Week of ${label}`}
+                    contentStyle={{ backgroundColor: '#30302E', border: '1px solid #3C3B37', borderRadius: 8 }}
+                    labelStyle={{ color: '#ACA99F' }}
+                    itemStyle={{ color: '#E8E6DC' }}
                   />
                   <Line
                     type="monotone"
@@ -175,15 +179,18 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
             {hasWritingData ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={writingChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}`} tick={{ fontSize: 11 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#3C3B37" />
+                  <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#ACA99F" }} />
+                  <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}`} tick={{ fontSize: 11, fill: "#ACA99F" }} />
                   <Tooltip
                     formatter={(value, name) => {
                       const num = typeof value === 'number' ? value : null
                       return [num ? `${num.toFixed(0)}` : '--', String(name)]
                     }}
                     labelFormatter={(label) => `Week of ${label}`}
+                    contentStyle={{ backgroundColor: '#30302E', border: '1px solid #3C3B37', borderRadius: 8 }}
+                    labelStyle={{ color: '#ACA99F' }}
+                    itemStyle={{ color: '#E8E6DC' }}
                   />
                   <Legend />
                   <Line
@@ -238,8 +245,8 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
         )}
 
         {/* Items learned bar chart summary */}
-        <div className="mt-6 pt-4 border-t border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Items Learned Per Week</h3>
+        <div className="mt-6 pt-4 border-t border-border">
+          <h3 className="text-sm font-medium text-ink mb-3">Items Learned Per Week</h3>
           <div className="flex gap-1 h-8">
             {data.items_learned.slice(-8).map((item, idx) => {
               const maxCount = Math.max(...data.items_learned.map(i => i.count), 1)
@@ -247,18 +254,18 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
               return (
                 <div
                   key={idx}
-                  className="flex-1 bg-indigo-100 rounded-sm relative group"
+                  className="flex-1 bg-accent-tint rounded-sm relative group"
                   style={{ height: `${height}%` }}
                   title={`${formatWeekLabel(item.week_start)}: ${item.count} items`}
                 >
-                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-gray-500 opacity-0 group-hover:opacity-100">
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-ink-muted opacity-0 group-hover:opacity-100">
                     {item.count}
                   </div>
                 </div>
               )
             })}
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-ink-muted mt-2">
             Last 8 weeks
           </p>
         </div>

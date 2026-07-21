@@ -12,14 +12,14 @@ export default function DashboardPage() {
   return (
     <div className="px-4 py-6 sm:px-0">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Track your learning progress</p>
+        <h1 className="font-serif text-2xl text-ink">Dashboard</h1>
+        <p className="text-ink-muted">Track your learning progress</p>
       </div>
 
       {/* Pending approvals badge */}
       {overviewData && overviewData.pending_approvals_count > 0 && (
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-amber-800 text-sm">
+        <div className="mb-4 p-3 bg-accent-tint border border-accent/30 rounded-lg">
+          <p className="text-accent-text text-sm">
             You have{' '}
             <span className="font-semibold">{overviewData.pending_approvals_count}</span>
             {' '}items awaiting approval

@@ -11,7 +11,7 @@ export function LoadingSpinner({ size = 'md' }: LoadingSpinnerProps) {
 
   return (
     <div className="flex items-center justify-center">
-      <div className={`${sizes[size]} animate-spin rounded-full border-2 border-gray-300 border-t-blue-600`} />
+      <div className={`${sizes[size]} animate-spin rounded-full border-2 border-border border-t-accent`} />
     </div>
   )
 }
@@ -22,10 +22,10 @@ interface LoadingOverlayProps {
 
 export function LoadingOverlay({ message = 'Loading...' }: LoadingOverlayProps) {
   return (
-    <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center z-10">
+    <div className="absolute inset-0 bg-surface/80 flex flex-col items-center justify-center z-10">
       <LoadingSpinner size="lg" />
       {message && (
-        <p className="mt-4 text-sm text-gray-600">{message}</p>
+        <p className="mt-4 text-sm text-ink-muted">{message}</p>
       )}
     </div>
   )

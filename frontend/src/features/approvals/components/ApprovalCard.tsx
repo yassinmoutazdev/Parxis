@@ -36,7 +36,7 @@ export function ApprovalCard({ item }: ApprovalCardProps) {
   const isLoading = approveMutation.isPending || rejectMutation.isPending
 
   return (
-    <div className="border rounded-lg p-4 mb-4 bg-white shadow-sm">
+    <div className="border rounded-lg p-4 mb-4 bg-surface shadow-sm">
       {/* Duplicate warning banner */}
       {item.possible_duplicate_of && (
         <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mb-3 text-sm text-yellow-800">
@@ -46,7 +46,7 @@ export function ApprovalCard({ item }: ApprovalCardProps) {
 
       {/* Item type badge */}
       <div className="mb-2">
-        <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+        <span className="inline-block bg-accent-tint text-accent-text text-xs px-2 py-1 rounded">
           {item.item_type}
         </span>
       </div>
@@ -59,7 +59,7 @@ export function ApprovalCard({ item }: ApprovalCardProps) {
       {/* Explanation */}
       {item.explanation && (
         <div className="mb-2">
-          <span className="text-sm text-gray-600">Explanation: </span>
+          <span className="text-sm text-ink-muted">Explanation: </span>
           <span className="text-sm">{item.explanation}</span>
         </div>
       )}
@@ -67,45 +67,45 @@ export function ApprovalCard({ item }: ApprovalCardProps) {
       {/* Example sentence */}
       {item.example_sentence && (
         <div className="mb-2">
-          <span className="text-sm text-gray-600">Example: </span>
+          <span className="text-sm text-ink-muted">Example: </span>
           <span className="text-sm italic">"{item.example_sentence}"</span>
         </div>
       )}
 
       {/* Source excerpt */}
-      <div className="mt-3 pt-3 border-t text-sm text-gray-500">
+      <div className="mt-3 pt-3 border-t text-sm text-ink-muted">
         <span className="block mb-1">Source excerpt:</span>
-        <blockquote className="border-l-2 border-gray-300 pl-2 italic">
+        <blockquote className="border-l-2 border-border-strong pl-2 italic">
           {item.source_context}
         </blockquote>
       </div>
 
       {/* Edit form (expandable) */}
       {isEditing && (
-        <div className="mt-4 p-3 bg-gray-50 rounded">
+        <div className="mt-4 p-3 bg-cream-100 rounded">
           <h4 className="font-medium mb-2">Edit Approval</h4>
           <div className="mb-2">
-            <label className="block text-sm text-gray-600 mb-1">Text</label>
+            <label className="block text-sm text-ink-muted mb-1">Text</label>
             <input
               type="text"
-              className="w-full border rounded px-2 py-1"
+              className="w-full bg-surface text-ink border border-border-strong rounded px-2 py-1"
               value={editForm.extracted_text}
               onChange={(e) => setEditForm({ ...editForm, extracted_text: e.target.value })}
             />
           </div>
           <div className="mb-2">
-            <label className="block text-sm text-gray-600 mb-1">Explanation</label>
+            <label className="block text-sm text-ink-muted mb-1">Explanation</label>
             <textarea
-              className="w-full border rounded px-2 py-1"
+              className="w-full bg-surface text-ink border border-border-strong rounded px-2 py-1"
               value={editForm.explanation}
               onChange={(e) => setEditForm({ ...editForm, explanation: e.target.value })}
             />
           </div>
           <div className="mb-2">
-            <label className="block text-sm text-gray-600 mb-1">Example Sentence</label>
+            <label className="block text-sm text-ink-muted mb-1">Example Sentence</label>
             <input
               type="text"
-              className="w-full border rounded px-2 py-1"
+              className="w-full bg-surface text-ink border border-border-strong rounded px-2 py-1"
               value={editForm.example_sentence}
               onChange={(e) => setEditForm({ ...editForm, example_sentence: e.target.value })}
             />
@@ -127,7 +127,7 @@ export function ApprovalCard({ item }: ApprovalCardProps) {
             <button
               onClick={() => setIsEditing(true)}
               disabled={isLoading}
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 disabled:opacity-50"
+              className="bg-cream-100 text-ink px-4 py-2 rounded hover:bg-cream-100 disabled:opacity-50"
             >
               Edit
             </button>
@@ -151,7 +151,7 @@ export function ApprovalCard({ item }: ApprovalCardProps) {
             <button
               onClick={() => setIsEditing(false)}
               disabled={isLoading}
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 disabled:opacity-50"
+              className="bg-cream-100 text-ink px-4 py-2 rounded hover:bg-cream-100 disabled:opacity-50"
             >
               Cancel
             </button>

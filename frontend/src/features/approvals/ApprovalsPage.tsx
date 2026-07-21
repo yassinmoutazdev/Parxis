@@ -64,7 +64,7 @@ export default function ApprovalsPage() {
       <div className="px-4 py-6 sm:px-0">
         <h1 className="text-2xl font-bold mb-6">Pending Approvals</h1>
         <div className="flex items-center justify-center h-64">
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-ink-muted">Loading...</p>
         </div>
       </div>
     )
@@ -86,8 +86,8 @@ export default function ApprovalsPage() {
       <h1 className="text-2xl font-bold mb-6">Pending Approvals</h1>
 
       {groupedApprovals.length === 0 ? (
-        <div className="border-4 border-dashed border-gray-200 rounded-lg h-64 flex items-center justify-center">
-          <p className="text-gray-500 text-lg">No pending approvals</p>
+        <div className="border-4 border-dashed border-border-strong rounded-lg h-64 flex items-center justify-center">
+          <p className="text-ink-muted text-lg">No pending approvals</p>
         </div>
       ) : (
         <div className="space-y-8">
@@ -96,10 +96,10 @@ export default function ApprovalsPage() {
               {/* Group header */}
               <div className="flex items-center justify-between mb-4 pb-2 border-b">
                 <div>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-ink-muted">
                     Source: {group.sourceType} #{group.sourceId}
                   </span>
-                  <span className="ml-2 text-sm text-gray-400">
+                  <span className="ml-2 text-sm text-ink-faint">
                     ({group.items.length} item{group.items.length !== 1 ? 's' : ''})
                   </span>
                 </div>

@@ -55,23 +55,23 @@ export default function WritingPage() {
     return (
       <div className="px-4 py-6 sm:px-0">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Writing Practice</h1>
+          <h1 className="font-serif text-2xl text-ink mb-6">Writing Practice</h1>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Mini Writing Card */}
             <button
               onClick={() => handleStart('mini')}
-              className="p-6 text-left bg-white border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
+              className="p-6 text-left bg-surface border-2 border-border rounded-lg hover:border-accent hover:shadow-md transition-all"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-ink mb-2">
                 Mini Writing
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-ink-muted mb-4">
                 Practice writing 2-3 sentences on a given topic. Get quick
                 feedback on grammar and naturalness.
               </p>
-              <div className="flex items-center text-sm text-gray-500">
-                <span className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-700 rounded">
+              <div className="flex items-center text-sm text-ink-muted">
+                <span className="inline-flex items-center px-2 py-1 bg-accent-tint text-accent-text rounded">
                   ~2-3 sentences
                 </span>
               </div>
@@ -80,16 +80,16 @@ export default function WritingPage() {
             {/* Weekly Writing Card */}
             <button
               onClick={() => handleStart('weekly')}
-              className="p-6 text-left bg-white border-2 border-gray-200 rounded-lg hover:border-green-500 hover:shadow-md transition-all"
+              className="p-6 text-left bg-surface border-2 border-border rounded-lg hover:border-accent hover:shadow-md transition-all"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-ink mb-2">
                 Weekly Assessment
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-ink-muted mb-4">
                 Write a longer essay on a generated topic. Receive detailed
                 feedback across 5 dimensions.
               </p>
-              <div className="flex items-center text-sm text-gray-500">
+              <div className="flex items-center text-sm text-ink-muted">
                 <span className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded">
                   1-2 paragraphs
                 </span>
@@ -108,7 +108,7 @@ export default function WritingPage() {
         {/* Back button */}
         <button
           onClick={handleBack}
-          className="mb-4 text-gray-600 hover:text-gray-900 flex items-center gap-1"
+          className="mb-4 text-ink-muted hover:text-ink flex items-center gap-1"
         >
           ← Back to Writing Options
         </button>
@@ -152,12 +152,12 @@ export default function WritingPage() {
           <div className="space-y-6">
             {/* Submission text for reference */}
             {currentSubmission && (
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                <h4 className="font-medium text-gray-700 mb-2">Your Submission</h4>
-                <p className="text-gray-600 whitespace-pre-wrap">
+              <div className="p-4 bg-cream-100 border border-border rounded-lg">
+                <h4 className="font-medium text-ink mb-2">Your Submission</h4>
+                <p className="text-ink-muted whitespace-pre-wrap">
                   {currentSubmission.submitted_text}
                 </p>
-                <p className="text-sm text-gray-400 mt-2">
+                <p className="text-sm text-ink-faint mt-2">
                   {currentSubmission.word_count} words
                 </p>
               </div>
@@ -171,7 +171,7 @@ export default function WritingPage() {
               <button
                 onClick={handleRetry}
                 disabled={loading}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+                className="px-4 py-2 text-ink-muted hover:text-ink"
               >
                 {loading ? 'Retrying...' : 'Retry Evaluation'}
               </button>

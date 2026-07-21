@@ -16,38 +16,38 @@ const queryClient = new QueryClient({
   },
 })
 
+const navLinks = [
+  { to: '/', label: 'Dashboard' },
+  { to: '/approvals', label: 'Approvals' },
+  { to: '/quizzes', label: 'Quizzes' },
+  { to: '/writing', label: 'Writing' },
+  { to: '/reports', label: 'Reports' },
+  { to: '/settings', label: 'Settings' },
+]
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-cream">
           {/* Navigation */}
-          <nav className="bg-white shadow-sm border-b border-gray-200">
+          <nav className="bg-cream border-b border-border">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16">
                 <div className="flex">
                   <div className="flex-shrink-0 flex items-center">
-                    <span className="text-xl font-semibold text-gray-900">Praxis</span>
+                    <span className="font-serif text-xl text-ink">Praxis</span>
                   </div>
-                  <div className="ml-6 flex space-x-8">
-                    <Link to="/" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900">
-                      Dashboard
-                    </Link>
-                    <Link to="/approvals" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900">
-                      Approvals
-                    </Link>
-                    <Link to="/quizzes" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900">
-                      Quizzes
-                    </Link>
-                    <Link to="/writing" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900">
-                      Writing
-                    </Link>
-                    <Link to="/reports" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900">
-                      Reports
-                    </Link>
-                    <Link to="/settings" className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900">
-                      Settings
-                    </Link>
+                  <div className="ml-8 flex space-x-6">
+                    {navLinks.map((link) => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        className="inline-flex items-center px-1 pt-1 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
                   </div>
                 </div>
               </div>

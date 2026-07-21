@@ -43,12 +43,12 @@ export default function WritingEditor({
         disabled={disabled}
         placeholder={placeholder}
         onKeyDown={handleKeyDown}
-        className="w-full h-64 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+        className="w-full h-64 p-4 bg-surface text-ink placeholder:text-ink-faint border border-border-strong rounded-lg resize-none focus:ring-2 focus:ring-accent focus:border-transparent disabled:bg-cream-100 disabled:cursor-not-allowed"
         aria-label="Writing editor"
       />
 
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-ink-muted">
           <span>{wordCount} words</span>
           <span className="mx-2">·</span>
           <span>{charCount} characters</span>
@@ -57,7 +57,7 @@ export default function WritingEditor({
         <button
           onClick={handleSubmit}
           disabled={!canSubmit || disabled}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:bg-border-strong disabled:cursor-not-allowed transition-colors"
         >
           {disabled ? 'Submitting...' : 'Submit'}
         </button>

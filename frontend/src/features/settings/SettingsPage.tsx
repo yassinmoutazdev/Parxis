@@ -1,8 +1,8 @@
 export default function SettingsPage() {
   return (
     <div className="px-4 py-6 sm:px-0">
-      <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 flex items-center justify-center">
-        <p className="text-gray-500 text-lg">Settings - Coming Soon</p>
+      <div className="border-4 border-dashed border-border-strong rounded-lg h-96 flex items-center justify-center">
+        <p className="text-ink-muted text-lg">Settings - Coming Soon</p>
       </div>
     </div>
   )
