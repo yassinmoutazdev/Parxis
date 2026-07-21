@@ -57,7 +57,7 @@ class QuizQuestion(SQLModel, table=True):
     question_type: QuizMode = Field(index=True)
     prompt: str
     correct_answer: str | None = Field(default=None)
-    distractors_json: list[str] | None = Field(default=None, sa_column=Column(JSON))
+    options_json: list[str] | None = Field(default=None, sa_column=Column(JSON))
     user_answer: str | None = Field(default=None)
     is_correct: bool | None = Field(default=None)
     score: float | None = Field(default=None)  # 0.0-1.0 for rubric-graded types

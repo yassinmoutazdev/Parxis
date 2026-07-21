@@ -196,6 +196,12 @@ class QuizService:
                 logger.warning(f"Question validation failed for item {item.id}: {warnings}")
                 return None
 
+            # Build options list for MULTIPLE_CHOICE (shuffled correct + distractors)
+            options_json: list[str] | None = None
+            if question_mode == QuizMode.MULTIPLE_CHOICE and result.distractors:
+                options_json = [result.correct_answer] + result.distractors
+                random.shuffle(options_json)
+
             # Create the QuizQuestion row
             question = QuizQuestion(
                 quiz_session_id=quiz_session_id,
@@ -203,7 +209,7 @@ class QuizService:
                 question_type=question_mode,
                 prompt=result.prompt_text,
                 correct_answer=result.correct_answer,
-                distractors_json=result.distractors,
+                options_json=options_json,
             )
             session.add(question)
             session.flush()
@@ -319,7 +325,6 @@ class QuizService:
                         question_type=question.question_type,
                         correct_answer=question.correct_answer,
                         user_answer=user_answer,
-                        distractors=None,  # TODO: add distractors to model
                     )
                     question.graded_by = GradedBy.DETERMINISTIC
                 else:

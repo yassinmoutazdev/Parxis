@@ -32,7 +32,7 @@ class QuizQuestionResponse(BaseModel):
     question_type: QuizMode
     prompt: str
     correct_answer: str | None = None  # Not sent to frontend for obvious reasons
-    distractors: list[str] | None = None
+    options: list[str] | None = None
 
 
 class QuizSessionResponse(BaseModel):
@@ -116,7 +116,7 @@ async def start_quiz(request: StartQuizRequest) -> QuizSessionResponse:
                     question_type=q.question_type,
                     prompt=q.prompt,
                     correct_answer=None,  # Don't send correct answer to frontend
-                    distractors=q.distractors_json,
+                    options=q.options_json,
                 )
                 for q in questions
             ],

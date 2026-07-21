@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from '../../../shared/components/Button'
 import type { QuizMode } from '../../../api/types'
 
 interface QuizModeSelectorProps {
@@ -26,36 +27,37 @@ export function QuizModeSelector({ onSelectMode, disabled }: QuizModeSelectorPro
   }
 
   return (
-    <div className="quiz-mode-selector">
-      <h2>Choose Quiz Mode</h2>
+    <div className="quiz-mode-selector space-y-6">
+      <h2 className="text-2xl font-semibold text-ink">Choose Quiz Mode</h2>
 
-      <div className="mode-grid">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {QUIZ_MODES.map((mode) => (
-          <label
+          <button
             key={mode.value}
-            className={`mode-option ${selectedMode === mode.value ? 'selected' : ''}`}
+            type="button"
+            onClick={() => setSelectedMode(mode.value)}
+            disabled={disabled}
+            className={`
+              text-left p-4 rounded-card border transition-all
+              ${selectedMode === mode.value
+                ? 'bg-accent-tint border-accent text-ink'
+                : 'bg-surface border-border hover:border-border-strong text-ink'}
+            `}
           >
-            <input
-              type="radio"
-              name="quizMode"
-              value={mode.value}
-              checked={selectedMode === mode.value}
-              onChange={() => setSelectedMode(mode.value)}
-              disabled={disabled}
-            />
-            <div className="mode-label">{mode.label}</div>
-            <div className="mode-description">{mode.description}</div>
-          </label>
+            <div className="font-medium">{mode.label}</div>
+            <div className="text-sm text-ink-muted mt-1">{mode.description}</div>
+          </button>
         ))}
       </div>
 
-      <div className="size-selector">
-        <label>
+      <div className="flex items-center gap-4">
+        <label className="text-ink-muted">
           Number of Questions:
           <select
             value={size}
             onChange={(e) => setSize(Number(e.target.value))}
             disabled={disabled}
+            className="ml-2 px-3 py-1.5 bg-surface border border-border rounded-lg text-ink focus:border-accent focus:outline-none"
           >
             <option value={5}>5</option>
             <option value={10}>10</option>
@@ -65,13 +67,13 @@ export function QuizModeSelector({ onSelectMode, disabled }: QuizModeSelectorPro
         </label>
       </div>
 
-      <button
-        className="start-button"
+      <Button
         onClick={handleStart}
         disabled={disabled}
+        size="lg"
       >
         Start Quiz
-      </button>
+      </Button>
     </div>
   )
 }
