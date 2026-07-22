@@ -43,8 +43,6 @@ class QuizService:
         {
             QuizMode.ERROR_CORRECTION,
             QuizMode.REWRITE_NATURALLY,
-            QuizMode.CONVERSATION,
-            QuizMode.MINI_ESSAY,
         }
     )
 
@@ -240,8 +238,6 @@ class QuizService:
             QuizMode.MULTIPLE_CHOICE,
             QuizMode.ERROR_CORRECTION,
             QuizMode.REWRITE_NATURALLY,
-            QuizMode.CONVERSATION,
-            QuizMode.MINI_ESSAY,
         ]
         return random.choice(concrete_modes)
 
@@ -261,8 +257,6 @@ class QuizService:
             QuizMode.MULTIPLE_CHOICE: TaskType.QUIZ_MULTIPLE_CHOICE,
             QuizMode.ERROR_CORRECTION: TaskType.QUIZ_ERROR_CORRECTION,
             QuizMode.REWRITE_NATURALLY: TaskType.QUIZ_REWRITE_NATURALLY,
-            QuizMode.CONVERSATION: TaskType.QUIZ_CONVERSATION,
-            QuizMode.MINI_ESSAY: TaskType.QUIZ_MINI_ESSAY,
             QuizMode.RANDOM: TaskType.QUIZ_RANDOM,
         }
         return mode_to_task.get(mode, TaskType.QUIZ_RECALL)

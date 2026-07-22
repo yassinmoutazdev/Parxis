@@ -4,6 +4,7 @@ import { QuizModeSelector } from './components/QuizModeSelector'
 import { QuestionCard } from './components/QuestionCard'
 import { SessionSummary } from './components/SessionSummary'
 import { Button } from '../../shared/components/Button'
+import { LoadingOverlay } from '../../shared/components/LoadingSpinner'
 import type { QuizMode } from '../../api/types'
 
 type QuizView = 'selector' | 'quiz' | 'summary'
@@ -56,11 +57,12 @@ export default function QuizPage() {
   if (view === 'selector') {
     return (
       <div className="min-h-screen bg-cream px-6 py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto relative">
           <QuizModeSelector
             onSelectMode={handleSelectMode}
             disabled={startLoading}
           />
+          {startLoading && <LoadingOverlay message="Generating your quiz..." />}
           {startError && (
             <div className="mt-4 p-4 bg-red-900/20 border border-red-500 rounded-lg text-red-400">{startError}</div>
           )}

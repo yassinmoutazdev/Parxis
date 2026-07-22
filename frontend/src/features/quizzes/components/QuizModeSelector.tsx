@@ -13,8 +13,6 @@ const QUIZ_MODES: { value: QuizMode; label: string; description: string }[] = [
   { value: 'MULTIPLE_CHOICE', label: 'Multiple Choice', description: 'Choose the correct answer' },
   { value: 'ERROR_CORRECTION', label: 'Error Correction', description: 'Find and fix the error' },
   { value: 'REWRITE_NATURALLY', label: 'Rewrite Naturally', description: 'Make it sound natural' },
-  { value: 'CONVERSATION', label: 'Conversation', description: 'Use in a dialogue' },
-  { value: 'MINI_ESSAY', label: 'Mini Essay', description: 'Write about a topic' },
   { value: 'RANDOM', label: 'Random Mix', description: 'Mix of all modes' },
 ]
 

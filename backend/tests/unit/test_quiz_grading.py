@@ -204,7 +204,7 @@ class TestGradeDeterministicErrorCorrection:
 
 
 class TestGradeDeterministicFreeText:
-    """Tests for free-text modes (REWRITE, CONVERSATION, MINI_ESSAY)."""
+    """Tests for free-text modes (REWRITE_NATURALLY, ERROR_CORRECTION)."""
 
     def test_no_correct_answer(self):
         """Test when no correct answer is provided."""

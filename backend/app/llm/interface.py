@@ -81,8 +81,6 @@ class TaskType:
     QUIZ_MULTIPLE_CHOICE = "quiz_multiple_choice"
     QUIZ_ERROR_CORRECTION = "quiz_error_correction"
     QUIZ_REWRITE_NATURALLY = "quiz_rewrite_naturally"
-    QUIZ_CONVERSATION = "quiz_conversation"
-    QUIZ_MINI_ESSAY = "quiz_mini_essay"
     QUIZ_RANDOM = "quiz_random"
 
     # Quiz grading tasks
@@ -105,8 +103,6 @@ class TaskType:
             QUIZ_MULTIPLE_CHOICE,
             QUIZ_ERROR_CORRECTION,
             QUIZ_REWRITE_NATURALLY,
-            QUIZ_CONVERSATION,
-            QUIZ_MINI_ESSAY,
             QUIZ_RANDOM,
             WEEKLY_TOPIC,
             WEEKLY_NARRATIVE,

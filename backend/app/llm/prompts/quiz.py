@@ -9,8 +9,6 @@ QUIZ_FILL_BLANK_PROMPT_VERSION = "1.0.0"
 QUIZ_MULTIPLE_CHOICE_PROMPT_VERSION = "1.0.0"
 QUIZ_ERROR_CORRECTION_PROMPT_VERSION = "1.0.0"
 QUIZ_REWRITE_NATURALLY_PROMPT_VERSION = "1.0.0"
-QUIZ_CONVERSATION_PROMPT_VERSION = "1.0.0"
-QUIZ_MINI_ESSAY_PROMPT_VERSION = "1.0.0"
 
 # Prompt templates for each quiz mode
 QUIZ_RECALL_PROMPT = """Generate a recall-style quiz question based on the learning item.
@@ -111,42 +109,6 @@ Generate the prompt in JSON format:
 Return valid JSON only."""
 
 
-QUIZ_CONVERSATION_PROMPT = """Generate a conversation starter prompt based on the learning item.
-
-Create a prompt that asks the learner to use the learning item in a conversation.
-
-Learning Item:
-- Text: {item_text}
-- Definition: {item_definition}
-- Example: {item_example}
-
-Generate the prompt in JSON format:
-{{
-    "prompt_text": "Write a short dialogue (2-3 turns) that naturally uses: {item_text}",
-    "correct_answer": null
-}}
-
-Return valid JSON only."""
-
-
-QUIZ_MINI_ESSAY_PROMPT = """Generate a mini-essay prompt based on the learning item.
-
-Create a prompt that asks the learner to write about a topic using the learning item.
-
-Learning Item:
-- Text: {item_text}
-- Definition: {item_definition}
-- Example: {item_example}
-
-Generate the prompt in JSON format:
-{{
-    "prompt_text": "Write a short paragraph (50-100 words) about [topic] using: {item_text}",
-    "correct_answer": null
-}}
-
-Return valid JSON only."""
-
-
 # Mapping from quiz mode to prompt template
 QUIZ_PROMPTS = {
     "quiz_recall": QUIZ_RECALL_PROMPT,
@@ -154,8 +116,6 @@ QUIZ_PROMPTS = {
     "quiz_multiple_choice": QUIZ_MULTIPLE_CHOICE_PROMPT,
     "quiz_error_correction": QUIZ_ERROR_CORRECTION_PROMPT,
     "quiz_rewrite_naturally": QUIZ_REWRITE_NATURALLY_PROMPT,
-    "quiz_conversation": QUIZ_CONVERSATION_PROMPT,
-    "quiz_mini_essay": QUIZ_MINI_ESSAY_PROMPT,
 }
 
 # Version constants mapping (ADR-13)
@@ -165,8 +125,6 @@ QUIZ_PROMPT_VERSIONS = {
     "quiz_multiple_choice": QUIZ_MULTIPLE_CHOICE_PROMPT_VERSION,
     "quiz_error_correction": QUIZ_ERROR_CORRECTION_PROMPT_VERSION,
     "quiz_rewrite_naturally": QUIZ_REWRITE_NATURALLY_PROMPT_VERSION,
-    "quiz_conversation": QUIZ_CONVERSATION_PROMPT_VERSION,
-    "quiz_mini_essay": QUIZ_MINI_ESSAY_PROMPT_VERSION,
 }
 
 

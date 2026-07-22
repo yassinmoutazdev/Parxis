@@ -369,15 +369,13 @@ class TestQuizModes:
     """Tests for different quiz modes."""
 
     def test_all_concrete_modes_exist(self):
-        """Test that all 7 concrete quiz modes are defined."""
+        """Test that all 5 concrete quiz modes are defined."""
         concrete_modes = [
             QuizMode.RECALL,
             QuizMode.FILL_BLANK,
             QuizMode.MULTIPLE_CHOICE,
             QuizMode.ERROR_CORRECTION,
             QuizMode.REWRITE_NATURALLY,
-            QuizMode.CONVERSATION,
-            QuizMode.MINI_ESSAY,
         ]
 
         for mode in concrete_modes:
@@ -395,8 +393,6 @@ class TestQuizModes:
             QuizMode.MULTIPLE_CHOICE,
             QuizMode.ERROR_CORRECTION,
             QuizMode.REWRITE_NATURALLY,
-            QuizMode.CONVERSATION,
-            QuizMode.MINI_ESSAY,
         ]
 
         assert QuizMode.RANDOM not in concrete_modes

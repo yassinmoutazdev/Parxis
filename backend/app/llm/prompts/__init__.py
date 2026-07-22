@@ -36,8 +36,6 @@ _PROMPT_TEMPLATES: dict[str, str] = {
     TaskType.QUIZ_MULTIPLE_CHOICE: quiz.get_quiz_prompt(TaskType.QUIZ_MULTIPLE_CHOICE),
     TaskType.QUIZ_ERROR_CORRECTION: quiz.get_quiz_prompt(TaskType.QUIZ_ERROR_CORRECTION),
     TaskType.QUIZ_REWRITE_NATURALLY: quiz.get_quiz_prompt(TaskType.QUIZ_REWRITE_NATURALLY),
-    TaskType.QUIZ_CONVERSATION: quiz.get_quiz_prompt(TaskType.QUIZ_CONVERSATION),
-    TaskType.QUIZ_MINI_ESSAY: quiz.get_quiz_prompt(TaskType.QUIZ_MINI_ESSAY),
     # Quiz grading
     TaskType.GRADE_QUIZ_ANSWER: _GRADE_QUIZ_ANSWER_PROMPT,
     # Writing evaluation

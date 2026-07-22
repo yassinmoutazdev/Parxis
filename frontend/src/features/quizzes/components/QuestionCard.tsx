@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Card } from '../../../shared/components/Card'
+import { Card, CardContent } from '../../../shared/components/Card'
 import type { QuizMode } from '../../../api/types'
 
 interface QuestionCardProps {
@@ -78,48 +78,57 @@ export function QuestionCard({
         if (options && options.length > 0) {
           // Render options as clickable cards
           return (
-            <div className="grid grid-cols-1 gap-3">
-              {options.map((option, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => onAnswer(id, option)}
-                  disabled={readOnly}
-                  className={`
-                    p-4 rounded-card border text-left transition-all
-                    ${userAnswer === option
-                      ? 'bg-accent-tint border-accent text-ink'
-                      : 'bg-surface border-border hover:border-border-strong text-ink'}
-                  `}
-                >
-                  {option}
-                </button>
-              ))}
+            <div className="space-y-4">
+              <p className="text-lg text-ink font-medium">{prompt}</p>
+              <div className="grid grid-cols-1 gap-3">
+                {options.map((option, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => onAnswer(id, option)}
+                    disabled={readOnly}
+                    className={`
+                      p-4 rounded-card border text-left transition-all
+                      ${userAnswer === option
+                        ? 'bg-accent-tint border-accent text-ink'
+                        : 'bg-surface border-border hover:border-border-strong text-ink'}
+                    `}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
             </div>
           )
         }
         // Fallback to text input if no options
         return (
-          <input
-            type="text"
-            value={userAnswer}
-            onChange={(e) => onAnswer(id, e.target.value)}
-            placeholder="Type your answer"
-            disabled={readOnly}
-            className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
-          />
+          <div className="space-y-3">
+            <p className="text-lg text-ink font-medium">{prompt}</p>
+            <input
+              type="text"
+              value={userAnswer}
+              onChange={(e) => onAnswer(id, e.target.value)}
+              placeholder="Type your answer"
+              disabled={readOnly}
+              className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+            />
+          </div>
         )
 
       case 'RECALL':
         return (
-          <input
-            type="text"
-            value={userAnswer}
-            onChange={(e) => onAnswer(id, e.target.value)}
-            placeholder="What does it mean?"
-            disabled={readOnly}
-            className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
-          />
+          <div className="space-y-3">
+            <p className="text-lg text-ink font-medium">{prompt}</p>
+            <input
+              type="text"
+              value={userAnswer}
+              onChange={(e) => onAnswer(id, e.target.value)}
+              placeholder="What does it mean?"
+              disabled={readOnly}
+              className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+            />
+          </div>
         )
 
       case 'ERROR_CORRECTION':
@@ -138,8 +147,6 @@ export function QuestionCard({
         )
 
       case 'REWRITE_NATURALLY':
-      case 'CONVERSATION':
-      case 'MINI_ESSAY':
         return (
           <div className="space-y-3">
             <p className="text-ink">{prompt}</p>
@@ -156,28 +163,31 @@ export function QuestionCard({
 
       default:
         return (
-          <input
-            type="text"
-            value={userAnswer}
-            onChange={(e) => onAnswer(id, e.target.value)}
-            placeholder="Your answer"
-            disabled={readOnly}
-            className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
-          />
+          <div className="space-y-3">
+            <p className="text-lg text-ink font-medium">{prompt}</p>
+            <input
+              type="text"
+              value={userAnswer}
+              onChange={(e) => onAnswer(id, e.target.value)}
+              placeholder="Your answer"
+              disabled={readOnly}
+              className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+            />
+          </div>
         )
     }
   }
 
   return (
     <Card>
-      <div className="space-y-4">
+      <CardContent className="space-y-4">
         <div className="flex items-center">
           <span className="px-2 py-1 bg-surface text-ink-muted text-xs uppercase tracking-wide rounded">
             {questionType.replace('_', ' ')}
           </span>
         </div>
         {renderInput()}
-      </div>
+      </CardContent>
     </Card>
   )
 }
