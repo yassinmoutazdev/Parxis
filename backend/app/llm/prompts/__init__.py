@@ -6,7 +6,7 @@ Each task has its own module with co-located version constants per ADR-13.
 
 from app.llm.interface import TaskType
 
-from . import parser, quiz, weekly_report, writing_eval
+from . import coach, parser, quiz, weekly_report, writing_eval
 
 # Quiz answer grading prompt (inline since it's simple)
 _GRADE_QUIZ_ANSWER_PROMPT = """Grade the learner's quiz answer.
@@ -44,6 +44,8 @@ _PROMPT_TEMPLATES: dict[str, str] = {
     # Weekly reports
     TaskType.WEEKLY_NARRATIVE: weekly_report.get_weekly_narrative_prompt(),
     TaskType.WEEKLY_TOPIC: weekly_report.get_weekly_topic_prompt(),
+    # Chat coach
+    TaskType.COACH_CHAT: coach.COACH_CHAT_PROMPT,
 }
 
 

@@ -172,3 +172,45 @@ class TopicOutput(BaseModel):
     prompt_text: str = Field(
         description="the actual instruction shown to the learner"
     )
+
+
+# =============================================================================
+# Chat Coach Schemas (Section 4.1)
+# =============================================================================
+
+
+class CoachAction(BaseModel):
+    """A structured intent to launch a plugin, or none.
+
+    Corresponds to PRAXIS_CHAT_COACH_PLAN Section 4.1.
+    """
+
+    action: Literal["NONE", "START_QUIZ", "START_WRITING"]
+    quiz_mode: str | None = Field(
+        default=None,
+        description="required if action is START_QUIZ",
+    )
+    quiz_size: int | None = Field(
+        default=None,
+        description="required if action is START_QUIZ, default 10 if absent",
+    )
+    writing_topic: str | None = Field(
+        default=None,
+        description="required if action is START_WRITING",
+    )
+
+
+class CoachReply(BaseModel):
+    """Output schema for the coach_chat task.
+
+    Corresponds to PRAXIS_CHAT_COACH_PLAN Section 4.1.
+    """
+
+    reply_text: str = Field(
+        description="the assistant's conversational reply, always present"
+    )
+    action: CoachAction
+    suggested_thread_title: str | None = Field(
+        default=None,
+        description="only populated on the first assistant reply in a thread; 3-6 words",
+    )

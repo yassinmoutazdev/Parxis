@@ -230,3 +230,29 @@ export interface LearningItemBrowser extends LearningItem {
   decayed_mastery_score: number
   tags: string[]
 }
+
+// Chat Types
+export type ChatRole = 'USER' | 'ASSISTANT' | 'SYSTEM'
+export type ChatActionType = 'NONE' | 'QUIZ' | 'WRITING'
+
+export interface ChatThread {
+  id: number
+  title: string | null
+  last_message_preview: string | null
+  updated_at: string
+}
+
+export interface ChatMessage {
+  id: number
+  thread_id: number
+  role: ChatRole
+  content: string
+  action_type: ChatActionType
+  action_ref_id: number | null
+  created_at: string
+}
+
+export interface ChatThreadDetail extends ChatThread {
+  created_at: string
+  messages: ChatMessage[]
+}
