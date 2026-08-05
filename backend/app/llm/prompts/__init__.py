@@ -44,8 +44,12 @@ _PROMPT_TEMPLATES: dict[str, str] = {
     # Weekly reports
     TaskType.WEEKLY_NARRATIVE: weekly_report.get_weekly_narrative_prompt(),
     TaskType.WEEKLY_TOPIC: weekly_report.get_weekly_topic_prompt(),
-    # Chat coach
-    TaskType.COACH_CHAT: coach.COACH_CHAT_PROMPT,
+    # Chat coach follow-ups (still JSON-schema based; the main coach_chat
+    # turn uses tool-calling directly via generate_chat_with_tools instead
+    # of get_prompt_template)
+    TaskType.COACH_CHAT_AFTER_QUIZ: coach.COACH_CHAT_AFTER_QUIZ_PROMPT,
+    TaskType.COACH_CHAT_AFTER_WRITING: coach.COACH_CHAT_AFTER_WRITING_PROMPT,
+    TaskType.COACH_THREAD_TITLE: coach.COACH_THREAD_TITLE_PROMPT,
 }
 
 

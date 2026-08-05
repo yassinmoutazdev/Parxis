@@ -179,38 +179,28 @@ class TopicOutput(BaseModel):
 # =============================================================================
 
 
-class CoachAction(BaseModel):
-    """A structured intent to launch a plugin, or none.
+class CoachFollowupReply(BaseModel):
+    """Output schema for the after-quiz / after-writing follow-up tasks.
 
-    Corresponds to PRAXIS_CHAT_COACH_PLAN Section 4.1.
-    """
+    These follow-ups never trigger tools (the action already happened), so
+    they stay on the simple JSON-schema path rather than tool-calling.
 
-    action: Literal["NONE", "START_QUIZ", "START_WRITING"]
-    quiz_mode: str | None = Field(
-        default=None,
-        description="required if action is START_QUIZ",
-    )
-    quiz_size: int | None = Field(
-        default=None,
-        description="required if action is START_QUIZ, default 10 if absent",
-    )
-    writing_topic: str | None = Field(
-        default=None,
-        description="required if action is START_WRITING",
-    )
-
-
-class CoachReply(BaseModel):
-    """Output schema for the coach_chat task.
-
-    Corresponds to PRAXIS_CHAT_COACH_PLAN Section 4.1.
+    Corresponds to PRAXIS_CHAT_COACH_PLAN Section 4.1 (refactored per ADR:
+    main coach_chat turn moved to tool-calling; follow-ups unaffected).
     """
 
     reply_text: str = Field(
-        description="the assistant's conversational reply, always present"
+        description="the assistant's conversational follow-up reply"
     )
-    action: CoachAction
-    suggested_thread_title: str | None = Field(
-        default=None,
-        description="only populated on the first assistant reply in a thread; 3-6 words",
-    )
+
+
+class CoachThreadTitle(BaseModel):
+    """Output schema for the coach_thread_title task.
+
+    Generated via a small separate LLM call after the first assistant reply
+    in a new thread, since replies are now plain text (no forced JSON) under
+    tool-calling and can no longer carry a `suggested_thread_title` field
+    inline.
+    """
+
+    title: str = Field(description="a 3-6 word chat title")

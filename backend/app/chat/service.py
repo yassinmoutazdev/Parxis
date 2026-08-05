@@ -15,7 +15,8 @@ from app.db.models.writing import WritingSubmission
 from app.llm import ollama_adapter
 from app.llm.interface import TaskType
 from app.llm.prompts import coach as coach_prompts
-from app.llm.schemas import CoachReply
+from app.llm.schemas import CoachFollowupReply, CoachThreadTitle
+from app.llm.tools import COACH_TOOLS
 from app.quizzes.service import QuizService
 from app.retrieval.service import RetrievalService, is_due
 from app.scheduler.mastery import decayed_score
@@ -204,7 +205,7 @@ class ChatService:
 
     @classmethod
     def _format_messages(cls, messages: list[ChatMessage]) -> str:
-        """Format messages for the coach prompt.
+        """Format messages for the JSON-schema-based follow-up prompts.
 
         Args:
             messages: List of ChatMessage objects
@@ -217,6 +218,34 @@ class ChatService:
             role = msg.role.value
             lines.append(f"{role}: {msg.content}")
         return "\n".join(lines)
+
+    @classmethod
+    def _format_history_for_tools(
+        cls, messages: list[ChatMessage]
+    ) -> list[dict[str, str]]:
+        """Format messages as a chat history list for tool-calling turns.
+
+        Unlike `_format_messages` (a single flattened string for the old
+        JSON-schema prompts), this keeps each turn as its own message dict so
+        the model sees a proper multi-turn chat, per Ollama's native chat
+        message format.
+
+        Args:
+            messages: List of ChatMessage objects
+
+        Returns:
+            List of {"role": "user"|"assistant", "content": str} dicts,
+            SYSTEM-role messages excluded (the system prompt is sent
+            separately).
+        """
+        role_map = {ChatRole.USER: "user", ChatRole.ASSISTANT: "assistant"}
+        history = []
+        for msg in messages[-20:]:  # Last 20 messages
+            mapped_role = role_map.get(msg.role)
+            if mapped_role is None:
+                continue
+            history.append({"role": mapped_role, "content": msg.content})
+        return history
 
     @classmethod
     async def generate_reply(cls, thread_id: int) -> ChatMessage:
@@ -242,67 +271,66 @@ class ChatService:
         # Get learner state for grounding
         learner_state = cls._get_learner_state()
 
-        # Format messages for prompt
-        messages_text = cls._format_messages(messages)
-
-        # Build context for LLM
-        context = {
-            "messages": messages_text,
-            "due_count": learner_state["due_count"],
-        }
+        # Build system prompt + per-turn chat history for tool-calling
+        system_prompt = coach_prompts.COACH_CHAT_SYSTEM_PROMPT.format(
+            due_count=learner_state["due_count"]
+        )
+        history = cls._format_history_for_tools(messages)
 
         # Check if this is the first assistant reply (for title suggestion)
         is_first_reply = not any(m.role == ChatRole.ASSISTANT for m in messages)
 
         try:
-            # Call the LLM
-            result = await ollama_adapter.ollama_adapter.generate(
+            # Call the LLM with real tool-calling (no forced JSON `action`)
+            result = await ollama_adapter.ollama_adapter.generate_chat_with_tools(
                 task=TaskType.COACH_CHAT,
-                context=context,
-                output_schema=CoachReply,
+                system_prompt=system_prompt,
+                history=history,
+                tools=COACH_TOOLS,
             )
 
-            # Persist the assistant message
-            action_type = ChatActionType.NONE
-            action_ref_id = None
+            assistant_message: ChatMessage
 
-            # Handle action if present
-            if result.action.action == "START_QUIZ":
-                # Determine quiz mode
-                quiz_mode_str = result.action.quiz_mode or "RECALL"
-                quiz_size = result.action.quiz_size or 10
+            if result.tool_name == "start_quiz":
+                args = result.tool_arguments or {}
+                quiz_mode_str = args.get("quiz_mode") or "RECALL"
+                quiz_size = args.get("quiz_size") or 10
                 try:
                     quiz_mode = QuizMode(quiz_mode_str)
                 except ValueError:
                     quiz_mode = QuizMode.RECALL
 
-                # Start the quiz
-                chat_msg = await cls.start_quiz_action(thread_id, quiz_mode, quiz_size)
-                action_type = ChatActionType.QUIZ
-                action_ref_id = chat_msg.action_ref_id
+                # Tool call ends the turn: a short client-side confirmation
+                # is enough, no extra LLM round-trip (per ADR).
+                assistant_message = await cls.start_quiz_action(
+                    thread_id, quiz_mode, quiz_size
+                )
 
-            elif result.action.action == "START_WRITING":
-                topic = result.action.writing_topic or "Free writing"
-                chat_msg = await cls.start_writing_action(thread_id, topic)
-                action_type = ChatActionType.WRITING
-                action_ref_id = chat_msg.action_ref_id
+            elif result.tool_name == "start_writing":
+                args = result.tool_arguments or {}
+                topic = args.get("writing_topic") or "Free writing"
+                assistant_message = await cls.start_writing_action(
+                    thread_id, topic
+                )
 
-            # Always persist the assistant reply
-            assistant_message = cls.append_message(
-                thread_id=thread_id,
-                role=ChatRole.ASSISTANT,
-                content=result.reply_text,
-                action_type=action_type,
-                action_ref_id=action_ref_id,
-            )
+            else:
+                # Ordinary conversational turn -- plain text, no action.
+                assistant_message = cls.append_message(
+                    thread_id=thread_id,
+                    role=ChatRole.ASSISTANT,
+                    content=result.content,
+                    action_type=ChatActionType.NONE,
+                    action_ref_id=None,
+                )
 
-            # Update thread title if this is first reply and suggestion present
-            if is_first_reply and result.suggested_thread_title:
-                with Session() as session:
-                    thread_obj = session.get(ChatThread, thread_id)
-                    if thread_obj and thread_obj.title is None:
-                        thread_obj.title = result.suggested_thread_title
-                        session.commit()
+            # Generate a thread title via a separate lightweight LLM call,
+            # only for the first assistant reply in a new thread.
+            if is_first_reply and thread.title is None:
+                await cls._maybe_set_thread_title(
+                    thread_id=thread_id,
+                    user_message=messages[-1].content if messages else "",
+                    assistant_reply=assistant_message.content,
+                )
 
             return assistant_message
 
@@ -314,6 +342,37 @@ class ChatService:
                 role=ChatRole.ASSISTANT,
                 content="I'm sorry, I encountered an error. Please try again.",
             )
+
+    @classmethod
+    async def _maybe_set_thread_title(
+        cls, thread_id: int, user_message: str, assistant_reply: str
+    ) -> None:
+        """Generate and persist a short thread title via a small LLM call.
+
+        Best-effort: title generation failures are logged and swallowed so
+        they never block the actual chat reply from being returned.
+
+        Args:
+            thread_id: The thread ID
+            user_message: The learner's first message in the thread
+            assistant_reply: The coach's first reply
+        """
+        try:
+            title_result = await ollama_adapter.ollama_adapter.generate(
+                task=TaskType.COACH_THREAD_TITLE,
+                context={
+                    "user_message": user_message,
+                    "assistant_reply": assistant_reply,
+                },
+                output_schema=CoachThreadTitle,
+            )
+            with Session() as session:
+                thread_obj = session.get(ChatThread, thread_id)
+                if thread_obj and thread_obj.title is None and title_result.title:
+                    thread_obj.title = title_result.title.strip()
+                    session.commit()
+        except Exception as e:
+            logger.warning(f"Failed to generate thread title for thread {thread_id}: {e}")
 
     @classmethod
     async def start_quiz_action(
@@ -425,9 +484,9 @@ class ChatService:
         try:
             # Call LLM for follow-up
             result = await ollama_adapter.ollama_adapter.generate(
-                task=TaskType.COACH_CHAT,  # Use same task type, different prompt would need separate task
+                task=TaskType.COACH_CHAT_AFTER_QUIZ,
                 context=context,
-                output_schema=CoachReply,
+                output_schema=CoachFollowupReply,
             )
 
             # Persist follow-up message (no action)
@@ -483,9 +542,9 @@ class ChatService:
         try:
             # Call LLM for follow-up
             result = await ollama_adapter.ollama_adapter.generate(
-                task=TaskType.COACH_CHAT,
+                task=TaskType.COACH_CHAT_AFTER_WRITING,
                 context=context,
-                output_schema=CoachReply,
+                output_schema=CoachFollowupReply,
             )
 
             # Persist follow-up message (no action)

@@ -4,39 +4,64 @@ Corresponds to PRAXIS_CHAT_COACH_PLAN Section 4.1.
 """
 
 # Version constant
-COACH_CHAT_PROMPT_VERSION = "1.0.0"
+COACH_CHAT_PROMPT_VERSION = "2.0.0"
 
-# Prompt template for coach chat
-COACH_CHAT_PROMPT = """You are an AI English learning coach having a conversation with a learner.
+# System prompt for coach chat (tool-calling variant).
+#
+# Replaces the old forced-JSON `action` field: the model now sees `start_quiz`
+# and `start_writing` as genuine, optional tools (via the Ollama `tools` param)
+# and is expected to reply with plain conversational text on ordinary turns,
+# only invoking a tool when the learner clearly asks for it. `due_count` is
+# background context for the learner's state, not an instruction to act on it.
+COACH_CHAT_SYSTEM_PROMPT = """You are an AI English learning coach having a conversation with a learner.
 
-Your role is to:
-1. Respond conversationally to the learner's messages
-2. Identify opportunities to help them practice (quiz on vocabulary, writing exercises)
-3. Provide encouraging, helpful feedback
+Respond conversationally, warmly, and helpfully. You have two optional tools
+available: start_quiz and start_writing.
 
-Conversation history (most recent last):
-{messages}
+Trigger rules (important):
+- Only call start_quiz if the learner explicitly asks to practice, review, or be quizzed.
+- Only call start_writing if the learner explicitly asks to practice writing or do a writing exercise.
+- Do NOT call a tool just because items are due for review, and do NOT call a tool on a
+  greeting, small talk, or an unrelated question -- respond in plain text instead.
+- If the learner already declined an offer earlier in this conversation, do not re-offer it
+  unless they bring it up again themselves.
+- Never call more than one tool in the same turn.
 
-Learner's current state:
-- Items due for review: {due_count}
+For a normal conversational turn, just reply in plain text -- do not call a tool.
+
+Learner's current state (background context only, not an instruction to act):
+- Items due for review: {due_count}"""
+
+# User-turn template: just the running conversation, formatted as chat history
+# by the caller and passed as `messages`; this string is kept for backward
+# compatibility with callers that still expect a single formattable template.
+COACH_CHAT_PROMPT = COACH_CHAT_SYSTEM_PROMPT
+
+# Lightweight prompt used only to generate a short thread title after the
+# first assistant reply in a new thread. Kept separate from the main
+# conversational turn now that replies are plain text, not JSON.
+COACH_THREAD_TITLE_PROMPT = """Suggest a short chat title based on the learner's own message below.
+The title must reflect what THIS learner specifically said, not a generic
+description of an English-learning app.
+
+Learner: {user_message}
+Coach: {assistant_reply}
+
+Rules:
+- Base the title primarily on the learner's message. The coach's reply is
+  context only, don't let it dominate the title.
+- If the learner's message is just a greeting or small talk with no specific
+  topic (e.g. "hi", "hello", "hey there"), use a plain title like "New chat"
+  or "Quick hello" -- do NOT invent a generic learning-themed title like
+  "English Learning Journey" or "English Practice Introduction".
+- 3-6 words, no trailing punctuation.
 
 Generate your response in JSON format:
 {{
-    "reply_text": "Your conversational response to the learner (always present)",
-    "action": {{
-        "action": "NONE" or "START_QUIZ" or "START_WRITING",
-        "quiz_mode": "RECALL" or "FILL_BLANK" or "MULTIPLE_CHOICE" (required if action is START_QUIZ),
-        "quiz_size": 10 (required if action is START_QUIZ),
-        "writing_topic": "topic suggestion" (required if action is START_WRITING)
-    }},
-    "suggested_thread_title": "3-6 word title" (only if this is the first reply in a new thread, otherwise null)
+    "title": "3-6 word title"
 }}
 
-Important:
-- reply_text should be conversational and encouraging
-- If starting a quiz, suggest a specific mode based on what would help the learner
-- If starting writing, suggest a topic relevant to their learning
-- Return valid JSON only."""
+Return valid JSON only."""
 
 # Prompt for continuing conversation after quiz completion
 COACH_CHAT_AFTER_QUIZ_PROMPT = """The learner just completed a quiz session.

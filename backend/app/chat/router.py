@@ -6,7 +6,7 @@ Corresponds to PRAXIS_CHAT_COACH_PLAN Section 3.4 (first four endpoints) and Sec
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query 
 from pydantic import BaseModel, Field
 
 from app.chat.service import ChatService
@@ -72,7 +72,7 @@ async def create_thread() -> ChatThreadResponse:
     try:
         thread = ChatService.create_thread()
         return ChatThreadResponse(
-            id=thread.id,
+            id=thread.id, # type: ignore
             title=thread.title,
             last_message_preview=thread.last_message_preview,
             updated_at=thread.updated_at,
@@ -84,8 +84,8 @@ async def create_thread() -> ChatThreadResponse:
 
 @router.get("/threads", response_model=list[ChatThreadResponse])
 async def list_threads(
-    limit: int = Field(default=50, ge=1, le=100),
-    offset: int = Field(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ) -> list[ChatThreadResponse]:
     """List chat threads ordered by updated_at descending.
 
@@ -100,7 +100,7 @@ async def list_threads(
         threads = ChatService.list_threads(limit=limit, offset=offset)
         return [
             ChatThreadResponse(
-                id=t.id,
+                id=t.id, # type: ignore
                 title=t.title,
                 last_message_preview=t.last_message_preview,
                 updated_at=t.updated_at,
@@ -130,14 +130,14 @@ async def get_thread(thread_id: int) -> ChatThreadDetailResponse:
         messages = ChatService.list_messages(thread_id)
 
         return ChatThreadDetailResponse(
-            id=thread.id,
+            id=thread.id, # type: ignore
             title=thread.title,
             created_at=thread.created_at,
             updated_at=thread.updated_at,
             last_message_preview=thread.last_message_preview,
             messages=[
                 ChatMessageResponse(
-                    id=m.id,
+                    id=m.id, # type: ignore
                     thread_id=m.thread_id,
                     role=m.role.value,
                     content=m.content,
@@ -211,7 +211,7 @@ async def send_message(
 
         return SendMessageResponse(
             user_message=ChatMessageResponse(
-                id=user_message.id,
+                id=user_message.id, # type: ignore
                 thread_id=user_message.thread_id,
                 role=user_message.role.value,
                 content=user_message.content,
@@ -220,7 +220,7 @@ async def send_message(
                 created_at=user_message.created_at,
             ),
             assistant_message=ChatMessageResponse(
-                id=assistant_message.id,
+                id=assistant_message.id, # type: ignore
                 thread_id=assistant_message.thread_id,
                 role=assistant_message.role.value,
                 content=assistant_message.content,
@@ -260,7 +260,7 @@ async def complete_quiz(thread_id: int, session_id: int) -> ChatMessageResponse:
     try:
         message = await ChatService.on_quiz_graded(thread_id, session_id)
         return ChatMessageResponse(
-            id=message.id,
+            id=message.id, # type: ignore
             thread_id=message.thread_id,
             role=message.role.value,
             content=message.content,
@@ -297,7 +297,7 @@ async def complete_writing(
     try:
         message = await ChatService.on_writing_graded(thread_id, prompt_id)
         return ChatMessageResponse(
-            id=message.id,
+            id=message.id, # type: ignore
             thread_id=message.thread_id,
             role=message.role.value,
             content=message.content,

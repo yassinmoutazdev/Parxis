@@ -100,7 +100,7 @@ export default function ReportsPage() {
   // View: Past reports archive
   if (step === 'select' && !currentReport) {
     return (
-      <div className="px-4 py-6 sm:px-0">
+      <div className="px-6 py-6">
         <div className="max-w-4xl mx-auto">
           <h1 className="font-serif text-2xl text-ink mb-6">Weekly Reports</h1>
 
@@ -137,7 +137,7 @@ export default function ReportsPage() {
 
   // View: Weekly Review Flow
   return (
-    <div className="px-4 py-6 sm:px-0">
+    <div className="px-6 py-6">
       <div className="max-w-3xl mx-auto">
         {/* Back button */}
         <button

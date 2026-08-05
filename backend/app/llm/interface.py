@@ -94,8 +94,11 @@ class TaskType:
     WEEKLY_TOPIC = "weekly_topic"
     WEEKLY_NARRATIVE = "weekly_narrative"
 
-    # Chat coach task
+    # Chat coach tasks
     COACH_CHAT = "coach_chat"
+    COACH_CHAT_AFTER_QUIZ = "coach_chat_after_quiz"
+    COACH_CHAT_AFTER_WRITING = "coach_chat_after_writing"
+    COACH_THREAD_TITLE = "coach_thread_title"
 
     # All generation tasks (for reference)
     GENERATION_TASKS = frozenset(
@@ -109,7 +112,9 @@ class TaskType:
             QUIZ_RANDOM,
             WEEKLY_TOPIC,
             WEEKLY_NARRATIVE,
-            COACH_CHAT,
+            COACH_CHAT_AFTER_QUIZ,
+            COACH_CHAT_AFTER_WRITING,
+            COACH_THREAD_TITLE,
         }
     )
 

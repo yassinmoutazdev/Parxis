@@ -61,7 +61,7 @@ export default function ApprovalsPage() {
 
   if (isLoading) {
     return (
-      <div className="px-4 py-6 sm:px-0">
+      <div className="px-6 py-6">
         <h1 className="text-2xl font-bold mb-6">Pending Approvals</h1>
         <div className="flex items-center justify-center h-64">
           <p className="text-ink-muted">Loading...</p>
@@ -72,7 +72,7 @@ export default function ApprovalsPage() {
 
   if (error) {
     return (
-      <div className="px-4 py-6 sm:px-0">
+      <div className="px-6 py-6">
         <h1 className="text-2xl font-bold mb-6">Pending Approvals</h1>
         <div className="bg-red-50 border border-red-200 rounded p-4 text-red-800">
           Error loading approvals: {(error as Error).message}
@@ -82,7 +82,7 @@ export default function ApprovalsPage() {
   }
 
   return (
-    <div className="px-4 py-6 sm:px-0">
+    <div className="px-6 py-6">
       <h1 className="text-2xl font-bold mb-6">Pending Approvals</h1>
 
       {groupedApprovals.length === 0 ? (

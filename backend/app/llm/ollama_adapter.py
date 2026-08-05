@@ -7,6 +7,7 @@ Corresponds to ARCHITECTURE Section 3 (ADR-06) and Section 11.1.
 """
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -17,6 +18,24 @@ from app.config import settings
 from . import inference_settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ToolCallResult:
+    """Result of a tool-calling chat turn.
+
+    Exactly one of (tool_name is None) or (content == "") should typically
+    hold: the model either replies conversationally, or invokes a tool to
+    end the turn (per ADR: tool call ends the turn, no extra round-trip).
+    """
+
+    content: str
+    tool_name: str | None = None
+    tool_arguments: dict[str, Any] | None = None
+
+    @property
+    def is_tool_call(self) -> bool:
+        return self.tool_name is not None
 
 
 def _strip_code_fences(content: str) -> str:
@@ -105,6 +124,134 @@ class OllamaAdapter:
             messages=[{"role": "user", "content": user_message}],
             output_schema=output_schema,
         )
+
+    async def generate_chat_with_tools(
+        self,
+        task: str,
+        system_prompt: str,
+        history: list[dict[str, str]],
+        tools: list[dict[str, Any]],
+    ) -> ToolCallResult:
+        """Run a chat turn with real Ollama tool-calling (not schema-forced JSON).
+
+        Sends a proper chat message list (system + per-turn user/assistant
+        messages) plus a `tools` spec, and reads back either free-text content
+        or a tool call from `message.tool_calls`, per Ollama's native
+        function-calling API.
+
+        Args:
+            task: The task identifier, used for inference settings lookup
+            system_prompt: The system message content
+            history: Prior turns as [{"role": "user"|"assistant", "content": str}]
+            tools: Ollama tool specs (see app.llm.tools)
+
+        Returns:
+            ToolCallResult with either conversational content, or a tool call
+
+        Raises:
+            httpx.ConnectError: If Ollama is unreachable after retries
+            httpx.TimeoutException: If the request times out
+        """
+        messages = [{"role": "system", "content": system_prompt}, *history]
+        inf_settings = inference_settings.get_settings_for_task(task)
+
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "tools": tools,
+            "stream": False,
+            **inf_settings.to_ollama_params(),
+        }
+
+        headers: dict[str, str] = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            last_error: Exception | None = None
+
+            for attempt in range(self.max_retries + 1):
+                try:
+                    response = await client.post(
+                        f"{self.host}/api/chat",
+                        json=payload,
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+
+                    data = response.json()
+                    message = data.get("message", {})
+                    tool_calls = message.get("tool_calls") or []
+                    content = message.get("content", "") or ""
+
+                    if tool_calls:
+                        # Only ever act on the first tool call (prompt instructs
+                        # the model not to call more than one per turn).
+                        call = tool_calls[0].get("function", {})
+                        name = call.get("name")
+                        arguments = call.get("arguments") or {}
+                        if name:
+                            return ToolCallResult(
+                                content=content,
+                                tool_name=name,
+                                tool_arguments=arguments,
+                            )
+                        # Malformed tool call (no name) -- treat as retryable.
+                        logger.warning(
+                            f"Tool call missing function name for task {task}: {tool_calls[0]}"
+                        )
+                        if attempt < self.max_retries:
+                            last_error = ValueError("Malformed tool call")
+                            continue
+                        # Fall through to plain content as a last resort.
+
+                    if content.strip():
+                        return ToolCallResult(content=content)
+
+                    # Empty response with no tool call -- retry once, then
+                    # fall back to a generic message rather than failing hard.
+                    logger.warning(
+                        f"Empty content and no tool_calls for task {task} "
+                        f"(attempt {attempt + 1})"
+                    )
+                    if attempt < self.max_retries:
+                        last_error = ValueError("Empty model response")
+                        continue
+                    return ToolCallResult(
+                        content="Sorry, could you say that again?"
+                    )
+
+                except httpx.ConnectError as e:
+                    logger.warning(f"Connection error on attempt {attempt + 1}: {e}")
+                    last_error = e
+                    import asyncio
+
+                    await asyncio.sleep(1 if attempt == 0 else 3)
+                    continue
+
+                except httpx.TimeoutException:
+                    logger.error(f"Timeout after {self.timeout}s for task {task}")
+                    raise
+
+                except httpx.HTTPStatusError as e:
+                    # Fallback path: some Ollama versions/models reject the
+                    # `tools` param outright (400) instead of just ignoring
+                    # unsupported tool calls. Retry once as a plain chat
+                    # call so the coach still responds conversationally.
+                    if e.response.status_code == 400 and "tools" in payload:
+                        logger.warning(
+                            f"Ollama rejected tools param for task {task}, "
+                            "falling back to plain chat without tools"
+                        )
+                        payload = {k: v for k, v in payload.items() if k != "tools"}
+                        last_error = e
+                        continue
+                    logger.error(f"HTTP error for task {task}: {e}")
+                    raise
+
+            if last_error:
+                raise last_error
+            raise Exception(f"Failed after {self.max_retries + 1} attempts")
 
     def generate_sync(
         self,

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useThread, useCreateThread, useSendMessage, useCompleteQuiz } from './api/chat'
 import type { ChatMessage } from '../../api/types'
 import { QuestionCard } from '../quizzes/components/QuestionCard'
@@ -13,6 +14,8 @@ interface QuizWidgetData {
 
 export default function ChatPage() {
   const { threadId } = useParams<{ threadId?: string }>()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const numericThreadId = threadId ? parseInt(threadId, 10) : null
 
   const [input, setInput] = useState('')
@@ -27,6 +30,10 @@ export default function ChatPage() {
 
   // Quiz widget state
   const [quizWidget, setQuizWidget] = useState<QuizWidgetData | null>(null)
+
+  // Optimistic user message shown immediately on send, before the server
+  // round-trip resolves and the thread query refetches with the real data.
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -71,8 +78,15 @@ export default function ChatPage() {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
 
+    const content = input.trim()
     setError(null)
     setIsLoading(true)
+
+    // Optimistic UI: clear the composer and show the bubble immediately,
+    // instead of waiting for the full round-trip (user_message +
+    // assistant_message) to come back.
+    setInput('')
+    setPendingMessage(content)
 
     try {
       let thread = numericThreadId
@@ -81,16 +95,18 @@ export default function ChatPage() {
       if (!thread) {
         const newThread = await createThread.mutateAsync()
         thread = newThread.id
-        window.history.pushState({}, '', `/chat/${thread}`)
+        navigate(`/chat/${thread}`, { replace: true })
       }
 
       // Send message and get reply
       const result = await sendMessage.mutateAsync({
         threadId: thread,
-        content: input.trim(),
+        content,
       })
 
-      setInput('')
+      // Make sure the real messages have landed in the cache before we drop
+      // the optimistic bubble, so there's no gap where nothing is shown.
+      await queryClient.refetchQueries({ queryKey: ['chat', 'thread', thread] })
 
       // Check if assistant triggered a quiz
       if (result.assistant_message.action_type === 'QUIZ' && result.assistant_message.action_ref_id) {
@@ -98,8 +114,11 @@ export default function ChatPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message')
+      // Restore the message to the composer so the user can retry.
+      setInput(content)
     } finally {
       setIsLoading(false)
+      setPendingMessage(null)
     }
   }
 
@@ -137,18 +156,13 @@ export default function ChatPage() {
         className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
       >
         <div
-          className={`max-w-[70%] rounded-lg px-4 py-2 ${
+          className={`max-w-[70%] rounded-card px-4 py-2 ${
             isUser
-              ? 'bg-ink text-cream'
-              : 'bg-border text-ink'
+              ? 'bg-accent text-white'
+              : 'bg-surface text-ink'
           }`}
         >
           <p className="whitespace-pre-wrap">{msg.content}</p>
-          {msg.action_type !== 'NONE' && (
-            <div className="mt-2 text-xs text-ink-muted">
-              Action: {msg.action_type} (ID: {msg.action_ref_id})
-            </div>
-          )}
         </div>
       </div>
     )
@@ -168,7 +182,7 @@ export default function ChatPage() {
     return (
       <div className="flex flex-col h-full">
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md">
+          <div className="text-center w-full max-w-2xl px-4">
             <h2 className="text-2xl font-serif text-ink mb-2">Chat Coach</h2>
             <p className="text-ink-muted mb-6">
               Ask anything, or try a quiz
@@ -193,6 +207,15 @@ export default function ChatPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {threadDetail.messages.map(renderMessage)}
+
+        {/* Optimistic user bubble, shown immediately on send */}
+        {pendingMessage && (
+          <div className="flex justify-end mb-4">
+            <div className="max-w-[70%] rounded-card px-4 py-2 bg-accent text-white">
+              <p className="whitespace-pre-wrap">{pendingMessage}</p>
+            </div>
+          </div>
+        )}
 
         {/* Quiz Widget */}
         {quizWidget && (
@@ -248,6 +271,18 @@ function Composer({
   disabled?: boolean
   placeholder?: string
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-resize: start at one line, grow with content up to a max height,
+  // then let the textarea's own scroll take over.
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const maxHeight = 200 // px, roughly ~8 lines
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+  }, [value])
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -256,22 +291,26 @@ function Composer({
   }
 
   return (
-    <div className="flex gap-2">
+    <div className="flex items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:ring-2 focus-within:ring-accent/40">
       <textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
         placeholder={placeholder}
-        className="flex-1 resize-none rounded-lg border border-border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-ink/20 disabled:opacity-50"
-        rows={2}
+        className="flex-1 resize-none bg-transparent text-ink placeholder:text-ink-faint px-1 py-1.5 focus:outline-none disabled:opacity-50 max-h-[200px] overflow-y-auto"
+        rows={1}
       />
       <button
         onClick={onSubmit}
         disabled={disabled || !value.trim()}
-        className="px-4 py-2 bg-ink text-cream rounded-lg hover:bg-ink/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        aria-label="Send message"
+        className="flex items-center justify-center w-9 h-9 rounded-full bg-accent text-white hover:bg-accent-hover disabled:bg-border disabled:text-ink-faint disabled:cursor-not-allowed transition-colors"
       >
-        Send
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+        </svg>
       </button>
     </div>
   )
@@ -354,9 +393,9 @@ function QuizWidgetWrapper({
               onClick={() => setCurrentIndex(idx)}
               className={`w-2 h-2 rounded-full ${
                 idx === currentIndex
-                  ? 'bg-ink'
+                  ? 'bg-accent'
                   : answers[questions[idx].id]
-                    ? 'bg-ink/50'
+                    ? 'bg-accent/50'
                     : 'bg-border'
               }`}
             />
@@ -375,7 +414,7 @@ function QuizWidgetWrapper({
           <button
             onClick={handleSubmit}
             disabled={!allAnswered}
-            className="px-4 py-1 bg-ink text-cream rounded-lg text-sm hover:bg-ink/90 disabled:opacity-50"
+            className="px-4 py-1 bg-accent text-white rounded-lg text-sm hover:bg-accent-hover disabled:opacity-50"
           >
             Submit All
           </button>

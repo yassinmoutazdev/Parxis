@@ -27,7 +27,7 @@ function App() {
           </div>
 
           {/* Main Content */}
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1 overflow-y-auto">
             <Routes>
               {/* Chat - root goes to new chat */}
               <Route path="/" element={<ChatPage />} />

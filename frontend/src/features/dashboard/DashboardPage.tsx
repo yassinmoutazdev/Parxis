@@ -10,7 +10,7 @@ export default function DashboardPage() {
   const { data: trendsData, isLoading: trendsLoading, error: trendsError } = useTrends(90)
 
   return (
-    <div className="px-4 py-6 sm:px-0">
+    <div className="px-6 py-6">
       <div className="mb-6">
         <h1 className="font-serif text-2xl text-ink">Dashboard</h1>
         <p className="text-ink-muted">Track your learning progress</p>
