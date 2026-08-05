@@ -204,6 +204,48 @@ class ChatService:
             return {"due_count": due_count}
 
     @classmethod
+    def _format_writing_feedback(cls, feedback_json: dict) -> str:
+        """Format a WritingEvaluation.feedback_json dict into readable text.
+
+        Handles both shapes WritingService produces: mini evaluations
+        ({"corrections": [...], "naturalness_notes": [...]}) and weekly
+        evaluations ({"grammar": str, "naturalness": str, ...}), plus the
+        failed-evaluation shape ({"error": str}).
+
+        Args:
+            feedback_json: The evaluation's stored feedback_json dict
+
+        Returns:
+            Human-readable feedback text for the coach prompt context
+        """
+        if not feedback_json:
+            return "No feedback available."
+
+        if "error" in feedback_json:
+            return "Evaluation failed to complete."
+
+        if "corrections" in feedback_json:
+            # Mini evaluation shape
+            lines = []
+            for c in feedback_json.get("corrections", []):
+                lines.append(
+                    f"- \"{c.get('wrong')}\" should be \"{c.get('correct')}\" "
+                    f"({c.get('explanation')})"
+                )
+            for note in feedback_json.get("naturalness_notes", []):
+                lines.append(f"- {note}")
+            return "\n".join(lines) if lines else "No corrections - well done."
+
+        # Weekly evaluation shape: one feedback string per dimension
+        dimension_order = ["grammar", "naturalness", "vocabulary", "coherence", "overall"]
+        lines = [
+            f"- {dim.capitalize()}: {feedback_json[dim]}"
+            for dim in dimension_order
+            if feedback_json.get(dim)
+        ]
+        return "\n".join(lines) if lines else "No feedback available."
+
+    @classmethod
     def _format_messages(cls, messages: list[ChatMessage]) -> str:
         """Format messages for the JSON-schema-based follow-up prompts.
 
@@ -310,7 +352,7 @@ class ChatService:
                 args = result.tool_arguments or {}
                 topic = args.get("writing_topic") or "Free writing"
                 assistant_message = await cls.start_writing_action(
-                    thread_id, topic
+                    thread_id, writing_mode="mini", topic=topic
                 )
 
             else:
@@ -410,37 +452,52 @@ class ChatService:
 
     @classmethod
     async def start_writing_action(
-        cls, thread_id: int, topic: str
+        cls, thread_id: int, writing_mode: str = "mini", topic: str | None = None
     ) -> ChatMessage:
         """Start a writing action in a thread.
 
-        Creates a WritingPrompt using WritingService, then appends a message
-        with action_type=WRITING and action_ref_id=prompt.id.
+        Mode-aware: "mini" generates a mini prompt (optionally overriding its
+        topic, used by the LLM tool-call path which supplies a free-text
+        topic); "weekly" generates a real auto-generated-topic prompt via
+        WritingService.generate_weekly_prompt() instead of hijacking a mini
+        prompt's topic field, which is what this previously did
+        unconditionally (see Bug 3 / Work Item D).
+
+        Appends a message with action_type=WRITING and action_ref_id=prompt.id.
 
         Args:
             thread_id: The thread ID
-            topic: The writing topic
+            writing_mode: "mini" or "weekly". Defaults to "mini" to match the
+                LLM tool-call path's prior behavior.
+            topic: Free-text topic override, only meaningful for "mini" (the
+                LLM tool-call path supplies this; the manual "+" trigger does
+                not, since there's no free-text topic input in the UI).
 
         Returns:
             ChatMessage with action_type=WRITING and action_ref_id set
         """
-        # Create a writing prompt
-        prompt = WritingService.generate_mini_prompt()
+        if writing_mode == "weekly":
+            prompt = await WritingService.generate_weekly_prompt()
+            display_topic = prompt.topic
+        else:
+            prompt = WritingService.generate_mini_prompt()
 
-        # Update the prompt topic if provided
-        if topic:
-            with Session() as session:
-                from app.db.models.writing import WritingPrompt as WritingPromptModel
-                p = session.get(WritingPromptModel, prompt.id)
-                if p:
-                    p.topic = topic
-                    session.commit()
+            # Update the prompt topic if the caller supplied one (LLM
+            # tool-call path only -- the manual "+" trigger never does).
+            if topic:
+                with Session() as session:
+                    from app.db.models.writing import WritingPrompt as WritingPromptModel
+                    p = session.get(WritingPromptModel, prompt.id)
+                    if p:
+                        p.topic = topic
+                        session.commit()
+            display_topic = topic or prompt.topic
 
         # Append message with action reference
         message = cls.append_message(
             thread_id=thread_id,
             role=ChatRole.ASSISTANT,
-            content=f"Writing session started on: {topic}",
+            content=f"Writing session started on: {display_topic}",
             action_type=ChatActionType.WRITING,
             action_ref_id=prompt.id,
         )
@@ -469,6 +526,30 @@ class ChatService:
         correct = sum(1 for q in questions if q.is_correct)
         incorrect = total - correct
 
+        # Build detail on missed questions so the coach can reference
+        # specifics ("you mixed up X and Y") instead of only aggregate
+        # counts. Uses the per-question feedback already stored on
+        # QuizQuestion from grading (see QuizService.grade_session).
+        missed_questions = [
+            {
+                "prompt": q.prompt,
+                "user_answer": q.user_answer or "(no answer given)",
+                "feedback": q.feedback or "",
+            }
+            for q in questions
+            if q.is_correct is False
+        ]
+        missed_text = (
+            "\n".join(
+                f"- Prompt: {m['prompt']}\n"
+                f"  Learner's answer: {m['user_answer']}\n"
+                f"  Feedback: {m['feedback']}"
+                for m in missed_questions
+            )
+            if missed_questions
+            else "None - the learner got everything correct."
+        )
+
         # Get messages for context
         messages = cls.list_messages(thread_id)
         messages_text = cls._format_messages(messages)
@@ -479,6 +560,7 @@ class ChatService:
             "total": total,
             "correct": correct,
             "incorrect": incorrect,
+            "missed_questions": missed_text,
         }
 
         try:
@@ -528,6 +610,21 @@ class ChatService:
         if not prompt:
             raise ValueError(f"Writing prompt {prompt_id} not found")
 
+        # Pull the real submission/evaluation for this prompt instead of the
+        # previous hardcoded placeholders, so the coach can reference actual
+        # word count and evaluation feedback.
+        result = WritingService.get_latest_submission_for_prompt(prompt_id)
+        if result:
+            submission, evaluation = result
+            word_count = submission.word_count
+            if evaluation and evaluation.feedback_json:
+                feedback_points = cls._format_writing_feedback(evaluation.feedback_json)
+            else:
+                feedback_points = "Evaluation not yet available."
+        else:
+            word_count = 0
+            feedback_points = "No submission recorded yet."
+
         # Get messages for context
         messages = cls.list_messages(thread_id)
         messages_text = cls._format_messages(messages)
@@ -535,8 +632,8 @@ class ChatService:
         context = {
             "messages": messages_text,
             "topic": prompt.topic if prompt.topic else "Writing",
-            "word_count": 0,  # Unknown at this point - the prompt was started but not necessarily submitted
-            "feedback_points": "Writing session completed",
+            "word_count": word_count,
+            "feedback_points": feedback_points,
         }
 
         try:

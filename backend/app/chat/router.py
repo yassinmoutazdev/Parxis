@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.chat.service import ChatService
 from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
+from app.db.models.quiz import QuizMode
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,29 @@ class SendMessageResponse(BaseModel):
 
     user_message: ChatMessageResponse
     assistant_message: ChatMessageResponse
+
+
+class StartQuizDirectRequest(BaseModel):
+    """Request body for the manual '+' quiz trigger (Work Item D).
+
+    Bypasses the LLM entirely -- invokes the same start_quiz_action code
+    path the tool-calling flow already uses, just triggered directly from
+    the composer's "+" menu instead of a model decision.
+    """
+
+    mode: QuizMode
+    size: int = 10
+
+
+class StartWritingDirectRequest(BaseModel):
+    """Request body for the manual '+' writing trigger (Work Item D).
+
+    Binary mode choice only (no free-text topic input exists anywhere in
+    the writing backend) -- mirrors WritingPage's existing mini-vs-weekly
+    split.
+    """
+
+    writing_mode: str = Field(pattern="^(mini|weekly)$")
 
 
 @router.post("/threads", response_model=ChatThreadResponse, status_code=201)
@@ -235,6 +259,100 @@ async def send_message(
     except Exception as e:
         logger.error(f"Failed to send message to thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to send message")
+
+
+@router.post(
+    "/threads/{thread_id}/quiz",
+    response_model=ChatMessageResponse,
+)
+async def start_quiz_direct(
+    thread_id: int, request: StartQuizDirectRequest
+) -> ChatMessageResponse:
+    """Start a quiz directly from the composer's '+' menu (Work Item D).
+
+    A second entry point into the exact same start_quiz_action code path
+    the LLM tool-call already uses -- invoked directly instead of via a
+    model decision, so this does NOT go through the LLM at all.
+
+    Args:
+        thread_id: The thread ID
+        request: Quiz mode and size
+
+    Returns:
+        ChatMessageResponse with action_type=QUIZ and action_ref_id set
+
+    Raises:
+        HTTPException: 404 if thread not found
+    """
+    try:
+        # Verify thread exists
+        ChatService.get_thread(thread_id)
+
+        message = await ChatService.start_quiz_action(
+            thread_id, request.mode, request.size
+        )
+        return ChatMessageResponse(
+            id=message.id, # type: ignore
+            thread_id=message.thread_id,
+            role=message.role.value,
+            content=message.content,
+            action_type=message.action_type.value,
+            action_ref_id=message.action_ref_id,
+            created_at=message.created_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to start quiz directly for thread {thread_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start quiz")
+
+
+@router.post(
+    "/threads/{thread_id}/writing",
+    response_model=ChatMessageResponse,
+)
+async def start_writing_direct(
+    thread_id: int, request: StartWritingDirectRequest
+) -> ChatMessageResponse:
+    """Start a writing session directly from the composer's '+' menu (Work Item D).
+
+    A second entry point into the exact same start_writing_action code path
+    the LLM tool-call already uses -- invoked directly instead of via a
+    model decision, so this does NOT go through the LLM at all. Unlike the
+    LLM tool-call path (which always uses "mini" with a free-text topic),
+    this can also trigger "weekly" (auto-generated-topic) prompts.
+
+    Args:
+        thread_id: The thread ID
+        request: Writing mode ("mini" or "weekly")
+
+    Returns:
+        ChatMessageResponse with action_type=WRITING and action_ref_id set
+
+    Raises:
+        HTTPException: 404 if thread not found
+    """
+    try:
+        # Verify thread exists
+        ChatService.get_thread(thread_id)
+
+        message = await ChatService.start_writing_action(
+            thread_id, writing_mode=request.writing_mode
+        )
+        return ChatMessageResponse(
+            id=message.id, # type: ignore
+            thread_id=message.thread_id,
+            role=message.role.value,
+            content=message.content,
+            action_type=message.action_type.value,
+            action_ref_id=message.action_ref_id,
+            created_at=message.created_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to start writing directly for thread {thread_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start writing")
 
 
 @router.post(

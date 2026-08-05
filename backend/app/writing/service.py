@@ -6,6 +6,8 @@ and Section 9.4/9.5 (Writing Evaluator prompts).
 
 import logging
 
+from sqlmodel import select
+
 from app.db.engine import Session
 from app.db.models.approval import ApprovalQueue, ApprovalSourceType
 from app.db.models.learning_item import LearningItem
@@ -627,3 +629,40 @@ class WritingService:
         """
         with Session() as session:
             return session.get(WritingPrompt, prompt_id)
+
+    @classmethod
+    def get_latest_submission_for_prompt(
+        cls, prompt_id: int
+    ) -> tuple[WritingSubmission, WritingEvaluation | None] | None:
+        """Get the most recent submission (and its evaluation, if any) for a prompt.
+
+        Added to support the chat coach's post-writing follow-up (Work Item C):
+        `ChatService.on_writing_graded` only has the prompt_id (via
+        ChatMessage.action_ref_id), not the submission_id, so it needs a way
+        to look up the real submission/evaluation instead of relying on
+        hardcoded placeholder values.
+
+        Args:
+            prompt_id: The writing prompt ID
+
+        Returns:
+            (submission, evaluation) for the newest submission on this prompt,
+            or None if the prompt has no submissions yet. evaluation may be
+            None if grading hasn't completed / failed for that submission.
+        """
+        with Session() as session:
+            submission = session.exec(
+                select(WritingSubmission)
+                .where(WritingSubmission.prompt_id == prompt_id)
+                .order_by(WritingSubmission.created_at.desc())
+            ).first()
+            if not submission:
+                return None
+
+            evaluation = session.exec(
+                select(WritingEvaluation)
+                .where(WritingEvaluation.submission_id == submission.id)
+                .order_by(WritingEvaluation.created_at.desc())
+            ).first()
+
+            return submission, evaluation

@@ -63,6 +63,7 @@ class GradedQuestionResponse(BaseModel):
     score: float | None
     feedback: str | None
     graded_by: str | None
+    options: list[str] | None = None
 
 
 class SessionSummaryResponse(BaseModel):
@@ -179,6 +180,7 @@ async def submit_answers(
                     score=q.score,
                     feedback=q.feedback,
                     graded_by=q.graded_by.value if q.graded_by else None,
+                    options=q.options_json,
                 )
                 for q in questions
             ],
@@ -228,6 +230,7 @@ async def get_session(session_id: int) -> SessionSummaryResponse:
                     score=q.score,
                     feedback=q.feedback,
                     graded_by=q.graded_by.value if q.graded_by else None,
+                    options=q.options_json,
                 )
                 for q in questions
             ],

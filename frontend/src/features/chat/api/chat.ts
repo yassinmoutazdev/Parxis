@@ -92,6 +92,60 @@ export function useDeleteThread() {
   })
 }
 
+// Start a quiz directly from the composer's "+" menu (bypasses the LLM)
+export function useStartQuizDirect() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      threadId,
+      mode,
+      size,
+    }: {
+      threadId: number
+      mode: string
+      size: number
+    }): Promise<ChatMessage> => {
+      const res = await fetch(`${API_BASE}/threads/${threadId}/quiz`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, size }),
+      })
+      if (!res.ok) throw new Error('Failed to start quiz')
+      return res.json()
+    },
+    onSuccess: (_, { threadId }) => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'thread', threadId] })
+      queryClient.invalidateQueries({ queryKey: ['chat', 'threads'] })
+    },
+  })
+}
+
+// Start a writing session directly from the composer's "+" menu (bypasses the LLM)
+export function useStartWritingDirect() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      threadId,
+      writingMode,
+    }: {
+      threadId: number
+      writingMode: 'mini' | 'weekly'
+    }): Promise<ChatMessage> => {
+      const res = await fetch(`${API_BASE}/threads/${threadId}/writing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ writing_mode: writingMode }),
+      })
+      if (!res.ok) throw new Error('Failed to start writing session')
+      return res.json()
+    },
+    onSuccess: (_, { threadId }) => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'thread', threadId] })
+      queryClient.invalidateQueries({ queryKey: ['chat', 'threads'] })
+    },
+  })
+}
+
 // Complete quiz and get follow-up
 export function useCompleteQuiz() {
   const queryClient = useQueryClient()

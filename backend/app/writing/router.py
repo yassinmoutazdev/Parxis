@@ -119,6 +119,35 @@ async def create_weekly_prompt() -> WritingPromptResponse:
         raise HTTPException(status_code=500, detail="Failed to generate topic")
 
 
+@router.get("/prompts/{prompt_id}", response_model=WritingPromptResponse)
+async def get_prompt(prompt_id: int) -> WritingPromptResponse:
+    """Get a single writing prompt by ID.
+
+    Added to support the chat writing widget (Work Item B), which only has
+    the prompt id (via ChatMessage.action_ref_id) and needs the prompt's
+    topic/type to render WritingPromptCard, the same way the chat quiz
+    widget already fetches its session via GET /api/quizzes/{session_id}.
+
+    Args:
+        prompt_id: The writing prompt ID
+
+    Returns:
+        WritingPromptResponse with prompt details
+
+    Raises:
+        HTTPException: If the prompt is not found
+    """
+    prompt = WritingService.get_prompt(prompt_id)
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Writing prompt not found")
+    return WritingPromptResponse(
+        id=prompt.id,
+        prompt_type=prompt.prompt_type.value,
+        topic=prompt.topic,
+        used_at=prompt.used_at.isoformat(),
+    )
+
+
 @router.get("/prompts", response_model=PromptListResponse)
 async def list_prompts(
     prompt_type: WritingPromptType | None = None,

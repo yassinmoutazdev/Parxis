@@ -71,9 +71,14 @@ Quiz results:
 - Correct: {correct}
 - Incorrect: {incorrect}
 
+Questions they missed (prompt, their answer, and grading feedback for each):
+{missed_questions}
+
 Provide a brief, encouraging follow-up message that:
 1. Acknowledges their effort
-2. Notes any patterns in mistakes if notable
+2. If they missed anything, reference the specific mistake(s) above by name
+   (e.g. "you mixed up X and Y") rather than just praising the score -- draw
+   on the actual prompts/answers/feedback given, don't invent details
 3. Optionally suggests next steps
 
 Conversation so far:
@@ -92,13 +97,15 @@ COACH_CHAT_AFTER_WRITING_PROMPT = """The learner just completed a writing exerci
 Writing topic: {topic}
 Word count: {word_count}
 
-Key feedback points:
+Key feedback points from evaluation:
 {feedback_points}
 
 Provide a brief, encouraging follow-up message that:
 1. Acknowledges their effort
-2. Highlights one thing they did well
-3. Suggests one area to focus on
+2. Highlights one specific thing they did well, or one specific correction
+   from the feedback above, referencing it concretely -- don't invent details
+   not present in the feedback
+3. Suggests one area to focus on, grounded in the feedback above
 
 Conversation so far:
 {messages}

@@ -191,6 +191,10 @@ export async function createWeeklyPrompt(): Promise<WritingPrompt> {
   })
 }
 
+export async function getWritingPrompt(promptId: number): Promise<WritingPrompt> {
+  return request(`/writing/prompts/${promptId}`)
+}
+
 export async function listWritingPrompts(
   promptType?: string,
   limit: number = 10

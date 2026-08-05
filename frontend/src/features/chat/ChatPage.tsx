@@ -1,15 +1,31 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useThread, useCreateThread, useSendMessage, useCompleteQuiz } from './api/chat'
+import {
+  useThread,
+  useCreateThread,
+  useSendMessage,
+  useCompleteQuiz,
+  useCompleteWriting,
+  useStartQuizDirect,
+  useStartWritingDirect,
+} from './api/chat'
 import type { ChatMessage } from '../../api/types'
-import { QuestionCard } from '../quizzes/components/QuestionCard'
-import type { QuizSession, QuizQuestion } from '../../api/types'
+import { QuizRunner } from '../quizzes/components/QuizRunner'
+import { ChatWritingWidget } from './components/ChatWritingWidget'
+import { ComposerPlusMenu } from './components/ComposerPlusMenu'
+import { getWritingPrompt } from '../../api/client'
+import type { QuizSession, QuizQuestion, QuizMode, WritingPrompt } from '../../api/types'
 
 interface QuizWidgetData {
   sessionId: number
   questions: QuizQuestion[]
   session: QuizSession
+}
+
+interface WritingWidgetData {
+  promptId: number
+  prompt: WritingPrompt
 }
 
 export default function ChatPage() {
@@ -27,9 +43,15 @@ export default function ChatPage() {
   const createThread = useCreateThread()
   const sendMessage = useSendMessage()
   const completeQuiz = useCompleteQuiz()
+  const completeWriting = useCompleteWriting()
+  const startQuizDirect = useStartQuizDirect()
+  const startWritingDirect = useStartWritingDirect()
 
   // Quiz widget state
   const [quizWidget, setQuizWidget] = useState<QuizWidgetData | null>(null)
+
+  // Writing widget state
+  const [writingWidget, setWritingWidget] = useState<WritingWidgetData | null>(null)
 
   // Optimistic user message shown immediately on send, before the server
   // round-trip resolves and the thread query refetches with the real data.
@@ -42,12 +64,15 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [threadDetail?.messages])
 
-  // Load quiz widget if last message is a quiz action
+  // Load quiz/writing widget if last message triggered one
   useEffect(() => {
     if (threadDetail?.messages) {
       const lastMessage = threadDetail.messages[threadDetail.messages.length - 1]
       if (lastMessage?.action_type === 'QUIZ' && lastMessage.action_ref_id && !quizWidget) {
         loadQuizWidget(lastMessage.action_ref_id)
+      }
+      if (lastMessage?.action_type === 'WRITING' && lastMessage.action_ref_id && !writingWidget) {
+        loadWritingWidget(lastMessage.action_ref_id)
       }
     }
   }, [threadDetail])
@@ -75,6 +100,22 @@ export default function ChatPage() {
     }
   }
 
+  const loadWritingWidget = async (promptId: number) => {
+    try {
+      const prompt = await getWritingPrompt(promptId)
+      setWritingWidget({ promptId, prompt })
+    } catch (err) {
+      console.error('Failed to load writing prompt:', err)
+    }
+  }
+
+  const ensureThread = async (): Promise<number> => {
+    if (numericThreadId) return numericThreadId
+    const newThread = await createThread.mutateAsync()
+    navigate(`/chat/${newThread.id}`, { replace: true })
+    return newThread.id
+  }
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
 
@@ -89,14 +130,7 @@ export default function ChatPage() {
     setPendingMessage(content)
 
     try {
-      let thread = numericThreadId
-
-      // Create thread if doesn't exist
-      if (!thread) {
-        const newThread = await createThread.mutateAsync()
-        thread = newThread.id
-        navigate(`/chat/${thread}`, { replace: true })
-      }
+      const thread = await ensureThread()
 
       // Send message and get reply
       const result = await sendMessage.mutateAsync({
@@ -108,9 +142,12 @@ export default function ChatPage() {
       // the optimistic bubble, so there's no gap where nothing is shown.
       await queryClient.refetchQueries({ queryKey: ['chat', 'thread', thread] })
 
-      // Check if assistant triggered a quiz
+      // Check if assistant triggered a quiz or writing session
       if (result.assistant_message.action_type === 'QUIZ' && result.assistant_message.action_ref_id) {
         await loadQuizWidget(result.assistant_message.action_ref_id)
+      }
+      if (result.assistant_message.action_type === 'WRITING' && result.assistant_message.action_ref_id) {
+        await loadWritingWidget(result.assistant_message.action_ref_id)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message')
@@ -119,6 +156,38 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false)
       setPendingMessage(null)
+    }
+  }
+
+  // Manual "+" triggers (Work Item D): bypass the LLM entirely, calling the
+  // direct-trigger endpoints, then following the same rendering path as the
+  // LLM-triggered case (thread refetch -> widget appears from
+  // action_type/action_ref_id).
+  const handleStartQuizDirect = async (mode: QuizMode, size: number) => {
+    setError(null)
+    try {
+      const thread = await ensureThread()
+      const message = await startQuizDirect.mutateAsync({ threadId: thread, mode, size })
+      await queryClient.refetchQueries({ queryKey: ['chat', 'thread', thread] })
+      if (message.action_type === 'QUIZ' && message.action_ref_id) {
+        await loadQuizWidget(message.action_ref_id)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start quiz')
+    }
+  }
+
+  const handleStartWritingDirect = async (writingMode: 'mini' | 'weekly') => {
+    setError(null)
+    try {
+      const thread = await ensureThread()
+      const message = await startWritingDirect.mutateAsync({ threadId: thread, writingMode })
+      await queryClient.refetchQueries({ queryKey: ['chat', 'thread', thread] })
+      if (message.action_type === 'WRITING' && message.action_ref_id) {
+        await loadWritingWidget(message.action_ref_id)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start writing session')
     }
   }
 
@@ -145,6 +214,24 @@ export default function ChatPage() {
       }
     } catch (err) {
       console.error('Failed to complete quiz:', err)
+    }
+  }
+
+  const handleWritingComplete = async (promptId: number) => {
+    if (!numericThreadId) return
+
+    try {
+      // Notify chat that writing is complete (submission itself already
+      // happened inside ChatWritingWidget via POST /writing/submissions).
+      // Unlike the quiz widget, the writing widget stays mounted so the
+      // learner can keep referring back to their submission + evaluation
+      // feedback while the coach's follow-up message streams in below it.
+      await completeWriting.mutateAsync({
+        threadId: numericThreadId,
+        promptId,
+      })
+    } catch (err) {
+      console.error('Failed to complete writing:', err)
     }
   }
 
@@ -193,6 +280,8 @@ export default function ChatPage() {
               onSubmit={handleSend}
               disabled={isLoading}
               placeholder="Type your message..."
+              onStartQuiz={handleStartQuizDirect}
+              onStartWriting={handleStartWritingDirect}
             />
             {error && <p className="text-red-500 mt-2">{error}</p>}
           </div>
@@ -220,9 +309,20 @@ export default function ChatPage() {
         {/* Quiz Widget */}
         {quizWidget && (
           <div className="my-4">
-            <QuizWidgetWrapper
+            <QuizRunner
               questions={quizWidget.questions}
-              onComplete={handleQuizComplete}
+              onSubmitAll={handleQuizComplete}
+              submitting={completeQuiz.isPending}
+            />
+          </div>
+        )}
+
+        {/* Writing Widget */}
+        {writingWidget && (
+          <div className="my-4">
+            <ChatWritingWidget
+              prompt={writingWidget.prompt}
+              onComplete={handleWritingComplete}
             />
           </div>
         )}
@@ -250,6 +350,8 @@ export default function ChatPage() {
           onSubmit={handleSend}
           disabled={isLoading}
           placeholder="Type your message..."
+          onStartQuiz={handleStartQuizDirect}
+          onStartWriting={handleStartWritingDirect}
         />
         {error && <p className="text-red-500 mt-2">{error}</p>}
       </div>
@@ -264,14 +366,19 @@ function Composer({
   onSubmit,
   disabled,
   placeholder,
+  onStartQuiz,
+  onStartWriting,
 }: {
   value: string
   onChange: (v: string) => void
   onSubmit: () => void
   disabled?: boolean
   placeholder?: string
+  onStartQuiz?: (mode: QuizMode, size: number) => void
+  onStartWriting?: (mode: 'mini' | 'weekly') => void
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false)
 
   // Auto-resize: start at one line, grow with content up to a max height,
   // then let the textarea's own scroll take over.
@@ -290,8 +397,36 @@ function Composer({
     }
   }
 
+  const showPlusMenu = onStartQuiz && onStartWriting
+
   return (
-    <div className="flex items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:ring-2 focus-within:ring-accent/40">
+    <div className="relative flex items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:ring-2 focus-within:ring-accent/40">
+      {showPlusMenu && (
+        <>
+          <button
+            type="button"
+            onClick={() => setPlusMenuOpen(prev => !prev)}
+            disabled={disabled}
+            aria-label="Start a quiz or writing session"
+            aria-expanded={plusMenuOpen}
+            className="flex items-center justify-center w-9 h-9 rounded-full text-ink-muted hover:bg-border hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+
+          {plusMenuOpen && (
+            <ComposerPlusMenu
+              disabled={disabled}
+              onClose={() => setPlusMenuOpen(false)}
+              onStartQuiz={onStartQuiz!}
+              onStartWriting={onStartWriting!}
+            />
+          )}
+        </>
+      )}
+
       <textarea
         ref={textareaRef}
         value={value}
@@ -316,110 +451,3 @@ function Composer({
   )
 }
 
-// Quiz widget wrapper
-function QuizWidgetWrapper({
-  questions,
-  onComplete,
-}: {
-  questions: QuizQuestion[]
-  onComplete: (answers: Record<number, string>) => void
-}) {
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [answers, setAnswers] = useState<Record<number, string>>({})
-  const [isComplete, setIsComplete] = useState(false)
-
-  const handleAnswer = (questionId: number, answer: string) => {
-    setAnswers(prev => ({ ...prev, [questionId]: answer }))
-  }
-
-  const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1)
-    }
-  }
-
-  const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1)
-    }
-  }
-
-  const handleSubmit = () => {
-    setIsComplete(true)
-    onComplete(answers)
-  }
-
-  const currentQuestion = questions[currentIndex]
-  const hasAnswer = currentQuestion ? !!answers[currentQuestion.id] : false
-  const allAnswered = questions.every(q => !!answers[q.id])
-
-  if (isComplete) {
-    return (
-      <div className="p-4 bg-border rounded-lg">
-        <p className="text-ink-muted">Quiz submitted! Processing results...</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="p-4 bg-border rounded-lg">
-      {currentQuestion && (
-        <div className="mb-4">
-          <QuestionCard
-            id={currentQuestion.id}
-            questionType={currentQuestion.question_type}
-            prompt={currentQuestion.prompt}
-            options={currentQuestion.options}
-            userAnswer={answers[currentQuestion.id]}
-            onAnswer={handleAnswer}
-          />
-        </div>
-      )}
-
-      {/* Navigation */}
-      <div className="flex justify-between items-center">
-        <button
-          onClick={handlePrev}
-          disabled={currentIndex === 0}
-          className="px-3 py-1 text-sm text-ink-muted hover:text-ink disabled:opacity-50"
-        >
-          Previous
-        </button>
-
-        <div className="flex gap-1">
-          {questions.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentIndex(idx)}
-              className={`w-2 h-2 rounded-full ${
-                idx === currentIndex
-                  ? 'bg-accent'
-                  : answers[questions[idx].id]
-                    ? 'bg-accent/50'
-                    : 'bg-border'
-              }`}
-            />
-          ))}
-        </div>
-
-        {currentIndex < questions.length - 1 ? (
-          <button
-            onClick={handleNext}
-            disabled={!hasAnswer}
-            className="px-3 py-1 text-sm text-ink hover:text-ink/80 disabled:opacity-50"
-          >
-            Next
-          </button>
-        ) : (
-          <button
-            onClick={handleSubmit}
-            disabled={!allAnswered}
-            className="px-4 py-1 bg-accent text-white rounded-lg text-sm hover:bg-accent-hover disabled:opacity-50"
-          >
-            Submit All
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}

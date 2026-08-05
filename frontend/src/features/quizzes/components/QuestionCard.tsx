@@ -124,7 +124,7 @@ export function QuestionCard({
               type="text"
               value={userAnswer}
               onChange={(e) => onAnswer(id, e.target.value)}
-              placeholder="What does it mean?"
+              placeholder="Type your answer"
               disabled={readOnly}
               className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
             />

@@ -28,6 +28,7 @@ export interface GradedQuestion {
   score: number | null
   feedback: string | null
   graded_by: string | null
+  options: string[] | null
 }
 
 export interface QuizResultState {
