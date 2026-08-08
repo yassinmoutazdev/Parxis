@@ -14,6 +14,11 @@ import type {
   DashboardOverview,
   CategoryMastery,
   TrendData,
+  ConfigMap,
+  BackupInfo,
+  BackupRestoreResult,
+  EnvInfo,
+  VaultPathSetResult,
 } from './types'
 
 const API_BASE = '/api'
@@ -305,4 +310,42 @@ export async function getNotes(): Promise<Note[]> {
 // Tags
 export async function getTags(): Promise<Array<{ id: number; name: string }>> {
   return request('/tags')
+}
+
+// Settings
+export async function getConfig(): Promise<ConfigMap> {
+  const { config } = await request<{ config: ConfigMap }>('/settings/config')
+  return config
+}
+
+export async function setConfig(
+  key: string,
+  value: number | string | boolean | Record<string, number>
+): Promise<{ key: string; value: unknown; message: string }> {
+  return request('/settings/config', {
+    method: 'PUT',
+    body: JSON.stringify({ key, value }),
+  })
+}
+
+export async function getBackups(): Promise<BackupInfo[]> {
+  const { backups } = await request<{ backups: BackupInfo[] }>('/settings/backups')
+  return backups
+}
+
+export async function restoreBackup(name: string): Promise<BackupRestoreResult> {
+  return request(`/settings/backups/${encodeURIComponent(name)}/restore`, {
+    method: 'POST',
+  })
+}
+
+export async function getEnvInfo(): Promise<EnvInfo> {
+  return request('/settings/env-info')
+}
+
+export async function setVaultPath(vaultPath: string): Promise<VaultPathSetResult> {
+  return request('/settings/vault-path', {
+    method: 'PUT',
+    body: JSON.stringify({ vault_path: vaultPath }),
+  })
 }

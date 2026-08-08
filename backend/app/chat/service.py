@@ -4,23 +4,20 @@ Corresponds to PRAXIS_CHAT_COACH_PLAN Section 3.3 (CRUD layer) and Section 4.2 (
 """
 
 import logging
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timezone
 
 from app.db.engine import Session
 from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
 from app.db.models.learning_item import LearningItem
-from app.db.models.quiz import QuizMode, QuizSession
-from app.db.models.writing import WritingSubmission
+from app.db.models.quiz import QuizMode
 from app.llm import ollama_adapter
 from app.llm.interface import TaskType
 from app.llm.prompts import coach as coach_prompts
 from app.llm.schemas import CoachFollowupReply, CoachThreadTitle
 from app.llm.tools import COACH_TOOLS
 from app.quizzes.service import QuizService
-from app.retrieval.service import RetrievalService, is_due
-from app.scheduler.mastery import decayed_score
 from app.writing.service import WritingService
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +39,8 @@ class ChatService:
         with Session() as session:
             thread = ChatThread(
                 title=None,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 last_message_preview=None,
             )
             session.add(thread)
@@ -67,7 +64,7 @@ class ChatService:
         with Session() as session:
             threads = (
                 session.query(ChatThread)
-                .order_by(ChatThread.updated_at.desc())
+                .order_by(ChatThread.updated_at.desc())  # type: ignore[union-attr]
                 .offset(offset)
                 .limit(limit)
                 .all()
@@ -106,8 +103,8 @@ class ChatService:
         with Session() as session:
             messages = (
                 session.query(ChatMessage)
-                .filter(ChatMessage.thread_id == thread_id)
-                .order_by(ChatMessage.created_at.asc())
+                .filter(ChatMessage.thread_id == thread_id)  # type: ignore
+                .order_by(ChatMessage.created_at.asc())  # type: ignore
                 .all()
             )
             return messages
@@ -146,12 +143,12 @@ class ChatService:
                 content=content,
                 action_type=action_type,
                 action_ref_id=action_ref_id,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             session.add(message)
 
             # Update thread metadata
-            thread.updated_at = datetime.utcnow()
+            thread.updated_at = datetime.now(timezone.utc)
             # Truncate preview to ~120 chars
             thread.last_message_preview = content[:120] if content else None
 
@@ -175,7 +172,7 @@ class ChatService:
                 raise ValueError(f"Chat thread {thread_id} not found")
 
             # Delete messages first (cascade would handle this but be explicit)
-            session.query(ChatMessage).filter(ChatMessage.thread_id == thread_id).delete()
+            session.query(ChatMessage).filter(ChatMessage.thread_id == thread_id).delete()  # type: ignore
 
             # Delete thread
             session.delete(thread)
@@ -184,24 +181,6 @@ class ChatService:
     # =========================================================================
     # LLM Integration Methods (Section 4.2)
     # =========================================================================
-
-    @classmethod
-    def _get_learner_state(cls) -> dict[str, Any]:
-        """Get compact summary of learner's current state for grounding.
-
-        Returns:
-            Dict with due_count and optionally weekly report summary
-        """
-        with Session() as session:
-            # Count items due for review
-            all_items = session.query(LearningItem).filter(
-                LearningItem.suspended == False  # noqa: E712
-            ).all()
-
-            now = datetime.utcnow()
-            due_count = sum(1 for item in all_items if is_due(item, now))
-
-            return {"due_count": due_count}
 
     @classmethod
     def _format_writing_feedback(cls, feedback_json: dict) -> str:
@@ -310,13 +289,8 @@ class ChatService:
         thread = cls.get_thread(thread_id)
         messages = cls.list_messages(thread_id)
 
-        # Get learner state for grounding
-        learner_state = cls._get_learner_state()
-
         # Build system prompt + per-turn chat history for tool-calling
-        system_prompt = coach_prompts.COACH_CHAT_SYSTEM_PROMPT.format(
-            due_count=learner_state["due_count"]
-        )
+        system_prompt = coach_prompts.COACH_CHAT_SYSTEM_PROMPT
         history = cls._format_history_for_tools(messages)
 
         # Check if this is the first assistant reply (for title suggestion)
@@ -410,8 +384,8 @@ class ChatService:
             )
             with Session() as session:
                 thread_obj = session.get(ChatThread, thread_id)
-                if thread_obj and thread_obj.title is None and title_result.title:
-                    thread_obj.title = title_result.title.strip()
+                if thread_obj and thread_obj.title is None and title_result.title:  # type: ignore
+                    thread_obj.title = title_result.title.strip()  # type: ignore
                     session.commit()
         except Exception as e:
             logger.warning(f"Failed to generate thread title for thread {thread_id}: {e}")
@@ -505,11 +479,81 @@ class ChatService:
         return message
 
     @classmethod
+    def _build_comprehensive_quiz_context(cls, thread_id: int, questions: list) -> dict:
+        """Build rich context for comprehensive post-quiz feedback."""
+        total = len(questions)
+        correct = sum(1 for q in questions if q.is_correct is True)
+        incorrect = total - correct
+        score_pct = round(correct / total * 100) if total > 0 else 0
+
+        # ALL questions with details - fetch learning items for item_type
+        all_questions = []
+        error_categories = {}
+
+        with Session() as session:
+            for i, q in enumerate(questions, 1):
+                is_correct = q.is_correct is True
+                item_type = "unknown"
+                if q.learning_item_id:
+                    item = session.get(LearningItem, q.learning_item_id)
+                    if item:
+                        item_type = item.item_type.value
+
+                all_questions.append({
+                    "number": i,
+                    "type": q.question_type.value,
+                    "prompt": q.prompt,
+                    "user_answer": q.user_answer or "(no answer)",
+                    "correct_answer": q.correct_answer or "(open-ended)",
+                    "is_correct": is_correct,
+                    "score": q.score,
+                    "item_type": item_type,
+                })
+
+                if not is_correct:
+                    error_categories[item_type] = error_categories.get(item_type, 0) + 1
+
+        # Focus areas ranked
+        focus_areas = sorted(error_categories.items(), key=lambda x: -x[1])
+
+        # Get conversation history
+        messages = cls.list_messages(thread_id)
+        messages_text = cls._format_messages(messages[-20:])
+
+        return {
+            "total": total,
+            "correct": correct,
+            "incorrect": incorrect,
+            "score_pct": score_pct,
+            "all_questions": all_questions,
+            "focus_areas": focus_areas,
+            "messages": messages_text,
+        }
+
+    @classmethod
+    def _format_all_questions(cls, questions: list[dict]) -> str:
+        lines = []
+        for q in questions:
+            status = "✓" if q["is_correct"] else "✗"
+            lines.append(
+                f"{status} Q{q['number']} [{q['type']}] {q['prompt']}\n"
+                f"   Your answer: {q['user_answer']}\n"
+                f"   Correct: {q['correct_answer']}"
+            )
+        return "\n\n".join(lines)
+
+    @classmethod
+    def _format_focus_areas(cls, focus_areas: list[tuple]) -> str:
+        if not focus_areas:
+            return "None - great job!"
+        return ", ".join(f"{cat} ({count})" for cat, count in focus_areas[:3])
+
+    @classmethod
     async def on_quiz_graded(cls, thread_id: int, session_id: int) -> ChatMessage:
-        """Handle quiz completion - generate follow-up message.
+        """Handle quiz completion - generate comprehensive follow-up message.
 
         Called after the user submits quiz answers. Fetches the graded session
-        summary and calls the LLM for a follow-up message.
+        summary and calls the LLM for a comprehensive follow-up message.
 
         Args:
             thread_id: The thread ID
@@ -519,55 +563,18 @@ class ChatService:
             ChatMessage with the follow-up assistant reply
         """
         # Get graded session
-        quiz_session, questions = QuizService.get_session_with_questions(session_id)
+        _, questions = QuizService.get_session_with_questions(session_id)
 
-        # Build summary context
-        total = len(questions)
-        correct = sum(1 for q in questions if q.is_correct)
-        incorrect = total - correct
-
-        # Build detail on missed questions so the coach can reference
-        # specifics ("you mixed up X and Y") instead of only aggregate
-        # counts. Uses the per-question feedback already stored on
-        # QuizQuestion from grading (see QuizService.grade_session).
-        missed_questions = [
-            {
-                "prompt": q.prompt,
-                "user_answer": q.user_answer or "(no answer given)",
-                "feedback": q.feedback or "",
-            }
-            for q in questions
-            if q.is_correct is False
-        ]
-        missed_text = (
-            "\n".join(
-                f"- Prompt: {m['prompt']}\n"
-                f"  Learner's answer: {m['user_answer']}\n"
-                f"  Feedback: {m['feedback']}"
-                for m in missed_questions
-            )
-            if missed_questions
-            else "None - the learner got everything correct."
-        )
-
-        # Get messages for context
-        messages = cls.list_messages(thread_id)
-        messages_text = cls._format_messages(messages)
-
-        # Format quiz results
-        context = {
-            "messages": messages_text,
-            "total": total,
-            "correct": correct,
-            "incorrect": incorrect,
-            "missed_questions": missed_text,
-        }
+        # Build comprehensive context
+        ctx = cls._build_comprehensive_quiz_context(thread_id, questions)
+        ctx["all_questions_formatted"] = cls._format_all_questions(ctx["all_questions"])
+        ctx["focus_areas_formatted"] = cls._format_focus_areas(ctx["focus_areas"])
 
         try:
             # Call LLM for follow-up
             result = await ollama_adapter.ollama_adapter.generate(
                 task=TaskType.COACH_CHAT_AFTER_QUIZ,
-                context=context,
+                context=ctx,
                 output_schema=CoachFollowupReply,
             )
 
@@ -575,11 +582,13 @@ class ChatService:
             return cls.append_message(
                 thread_id=thread_id,
                 role=ChatRole.ASSISTANT,
-                content=result.reply_text,
+                content=result.reply_text,  # type: ignore[attr-defined]
             )
 
         except Exception as e:
             logger.error(f"Failed to generate quiz follow-up for thread {thread_id}: {e}")
+            correct = sum(1 for q in questions if q.is_correct is True)
+            total = len(questions)
             return cls.append_message(
                 thread_id=thread_id,
                 role=ChatRole.ASSISTANT,
@@ -648,7 +657,7 @@ class ChatService:
             return cls.append_message(
                 thread_id=thread_id,
                 role=ChatRole.ASSISTANT,
-                content=result.reply_text,
+                content=result.reply_text,  # type: ignore[attr-defined]
             )
 
         except Exception as e:

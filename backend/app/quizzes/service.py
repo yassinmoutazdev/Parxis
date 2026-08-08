@@ -321,13 +321,15 @@ class QuizService:
                         user_answer=user_answer,
                     )
                     question.graded_by = GradedBy.DETERMINISTIC
+                    question.feedback = feedback
                 else:
                     # LLM grading with provenance stamping (ADR-13)
-                    is_correct, score, feedback, provenance = await cls._grade_with_llm(
+                    is_correct, score, provenance = await cls._grade_with_llm(
                         question=question,
                         user_answer=user_answer,
                     )
                     question.graded_by = GradedBy.LLM
+                    question.feedback = None  # No per-question feedback; comprehensive feedback in chat
                     if provenance:
                         question.evaluator_provider = provenance.get("evaluator_provider")
                         question.evaluator_model = provenance.get("evaluator_model")
@@ -336,7 +338,6 @@ class QuizService:
 
                 question.is_correct = is_correct
                 question.score = score
-                question.feedback = feedback
 
                 # If incorrect or low score, create PerformanceError row
                 if not is_correct or (score is not None and score < settings.correct_threshold):
@@ -365,7 +366,7 @@ class QuizService:
         cls,
         question: QuizQuestion,
         user_answer: str,
-    ) -> tuple[bool, float, str, dict[str, str | None] | None]:
+    ) -> tuple[bool, float, dict[str, str | None] | None]:
         """Grade a quiz answer using LLM evaluation.
 
         Args:
@@ -373,7 +374,7 @@ class QuizService:
             user_answer: The user's answer
 
         Returns:
-            Tuple of (is_correct, score, feedback, provenance_dict)
+            Tuple of (is_correct, score, provenance_dict)
         """
 
         # Build context for grading
@@ -403,7 +404,7 @@ class QuizService:
         provenance = stamp_provenance(prompt_version="1.0.0")  # TODO: use actual version from prompts
         provenance_dict = to_dict(provenance)
 
-        return is_correct, score, result.feedback, provenance_dict
+        return is_correct, score, provenance_dict
 
     @classmethod
     def _create_performance_error(

@@ -256,3 +256,43 @@ export interface ChatThreadDetail extends ChatThread {
   created_at: string
   messages: ChatMessage[]
 }
+
+// Settings Types
+export interface ConfigFieldValue {
+  value: number | string | boolean | Record<string, number>
+  type: 'float' | 'int' | 'bool' | 'json'
+  min: number | null
+  max: number | null
+  default: number | string | boolean | Record<string, number>
+  description: string
+}
+
+export type ConfigMap = Record<string, ConfigFieldValue>
+
+export interface BackupInfo {
+  name: string
+  path: string
+  created_at: string
+  size_bytes: number
+}
+
+export interface BackupRestoreResult {
+  status: string
+  message: string
+  safety_backup: string | null
+}
+
+export interface EnvInfo {
+  ollama_host: string
+  ollama_model: string
+  ollama_api_key_set: boolean
+  vault_path: string
+  db_path: string
+  backup_dir: string
+}
+
+export interface VaultPathSetResult {
+  vault_path: string
+  watcher_started: boolean
+  message: string
+}

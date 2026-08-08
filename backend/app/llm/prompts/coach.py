@@ -8,11 +8,10 @@ COACH_CHAT_PROMPT_VERSION = "2.0.0"
 
 # System prompt for coach chat (tool-calling variant).
 #
-# Replaces the old forced-JSON `action` field: the model now sees `start_quiz`
-# and `start_writing` as genuine, optional tools (via the Ollama `tools` param)
-# and is expected to reply with plain conversational text on ordinary turns,
-# only invoking a tool when the learner clearly asks for it. `due_count` is
-# background context for the learner's state, not an instruction to act on it.
+# The model sees `start_quiz` and `start_writing` as genuine, optional tools
+# (via the Ollama `tools` param) and is expected to reply with plain
+# conversational text on ordinary turns, only invoking a tool when the learner
+# clearly asks for it.
 COACH_CHAT_SYSTEM_PROMPT = """You are an AI English learning coach having a conversation with a learner.
 
 Respond conversationally, warmly, and helpfully. You have two optional tools
@@ -21,16 +20,12 @@ available: start_quiz and start_writing.
 Trigger rules (important):
 - Only call start_quiz if the learner explicitly asks to practice, review, or be quizzed.
 - Only call start_writing if the learner explicitly asks to practice writing or do a writing exercise.
-- Do NOT call a tool just because items are due for review, and do NOT call a tool on a
-  greeting, small talk, or an unrelated question -- respond in plain text instead.
+- Do NOT call a tool on a greeting, small talk, or an unrelated question -- respond in plain text instead.
 - If the learner already declined an offer earlier in this conversation, do not re-offer it
   unless they bring it up again themselves.
 - Never call more than one tool in the same turn.
 
-For a normal conversational turn, just reply in plain text -- do not call a tool.
-
-Learner's current state (background context only, not an instruction to act):
-- Items due for review: {due_count}"""
+For a normal conversational turn, just reply in plain text -- do not call a tool."""
 
 # User-turn template: just the running conversation, formatted as chat history
 # by the caller and passed as `messages`; this string is kept for backward
@@ -64,29 +59,32 @@ Generate your response in JSON format:
 Return valid JSON only."""
 
 # Prompt for continuing conversation after quiz completion
-COACH_CHAT_AFTER_QUIZ_PROMPT = """The learner just completed a quiz session.
+COACH_CHAT_AFTER_QUIZ_PROMPT = """The learner just completed a quiz session. Generate ONE comprehensive follow-up message.
 
-Quiz results:
-- Total questions: {total}
-- Correct: {correct}
-- Incorrect: {incorrect}
+Quiz Results:
+- Score: {correct}/{total} ({score_pct}%)
 
-Questions they missed (prompt, their answer, and grading feedback for each):
-{missed_questions}
+Question-by-question breakdown:
+{all_questions_formatted}
 
-Provide a brief, encouraging follow-up message that:
-1. Acknowledges their effort
-2. If they missed anything, reference the specific mistake(s) above by name
-   (e.g. "you mixed up X and Y") rather than just praising the score -- draw
-   on the actual prompts/answers/feedback given, don't invent details
-3. Optionally suggests next steps
+Focus areas (by error frequency):
+{focus_areas_formatted}
 
 Conversation so far:
 {messages}
 
+Generate a single message that:
+1. Opens with the score and a brief encouraging tone
+2. Walks through each question concisely: question type, what was asked, their answer vs correct, why it was right/wrong
+3. Identifies 2-3 key focus areas from the patterns above
+4. Ends with a specific, actionable suggestion (e.g., "Want to practice PHRASAL_VERB items?" or "Try a FILL_BLANK quiz on COLLOCATIONs")
+5. Invites them to ask about any question
+
+Style: Conversational, supportive, like a tutor reviewing a worksheet. Not robotic.
+
 Generate your response in JSON format:
 {{
-    "reply_text": "Your follow-up message"
+    "reply_text": "Your comprehensive follow-up message"
 }}
 
 Return valid JSON only."""

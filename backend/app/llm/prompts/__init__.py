@@ -17,13 +17,11 @@ Learner's answer: {learner_answer}
 
 Generate your grading in JSON format:
 {{
-    "score": 0.85,
-    "feedback": "Your answer is close but..."
+    "score": 0.85
 }}
 
 Important:
 - score must be between 0.0 and 1.0
-- feedback should be 1-2 sentences
 Return valid JSON only."""
 
 # Prompt template lookup

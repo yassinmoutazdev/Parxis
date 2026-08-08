@@ -84,7 +84,6 @@ class GradedAnswerOutput(BaseModel):
     """
 
     score: float = Field(description="0.0-1.0")
-    feedback: str = Field(min_length=1, description="1-2 sentences")
 
 
 # =============================================================================

@@ -120,6 +120,11 @@ CONFIG_DEFINITIONS: dict[str, dict[str, Any]] = {
         "default": DEFAULT_BACKUP_RETENTION_MONTHLY,
         "description": "Number of monthly backups to retain",
     },
+    "vault_path": {
+        "type": "string",
+        "default": str(app_settings.vault_path),
+        "description": "Path to the Obsidian vault Praxis watches for notes",
+    },
 }
 
 
@@ -183,6 +188,8 @@ class ConfigService:
             import json
 
             return json.loads(value)
+        elif value_type == "string":
+            return value
         return value
 
     @classmethod
@@ -215,6 +222,9 @@ class ConfigService:
         elif value_type == "json":
             if not isinstance(value, dict):
                 raise ConfigValidationError(f"{key} must be a JSON object")
+        elif value_type == "string":
+            if not isinstance(value, str):
+                raise ConfigValidationError(f"{key} must be a string")
 
     @classmethod
     def get(cls, key: str) -> Any:

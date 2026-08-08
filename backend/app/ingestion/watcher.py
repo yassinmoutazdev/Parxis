@@ -291,3 +291,27 @@ def get_vault_watcher() -> VaultWatcher:
     if _vault_watcher is None:
         _vault_watcher = VaultWatcher()
     return _vault_watcher
+
+
+def restart_vault_watcher(new_vault_path: Path) -> bool:
+    """Restart the vault watcher with a new path.
+
+    Stops the existing watcher (if running) and starts a new one with the
+    updated vault path. Used when the vault_path config is changed at runtime.
+
+    Args:
+        new_vault_path: The new vault path to watch
+
+    Returns:
+        True if watcher started successfully, False otherwise
+    """
+    global _vault_watcher
+
+    # Stop existing watcher if running
+    if _vault_watcher is not None:
+        _vault_watcher.stop()
+        _vault_watcher = None
+
+    # Create and start new watcher with updated path
+    _vault_watcher = VaultWatcher(vault_path=new_vault_path)
+    return _vault_watcher.start()

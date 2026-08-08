@@ -4,6 +4,7 @@ import DashboardPage from './features/dashboard/DashboardPage'
 import ApprovalsPage from './features/approvals/ApprovalsPage'
 import ReportsPage from './features/reports/ReportsPage'
 import SettingsPage from './features/settings/SettingsPage'
+import BackupsPage from './features/settings/BackupsPage'
 import ChatPage from './features/chat/ChatPage'
 import Sidebar from './features/chat/Sidebar'
 
@@ -38,6 +39,7 @@ function App() {
               <Route path="/approvals" element={<ApprovalsPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/backups" element={<BackupsPage />} />
 
               {/* Fallback - redirect to chat */}
               <Route path="*" element={<Navigate to="/" replace />} />
