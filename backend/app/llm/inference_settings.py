@@ -49,7 +49,6 @@ _DEFAULT_SETTINGS = InferenceSettings(
 
 # Lookup table mapping task names to settings
 _TASK_SETTINGS: dict[str, InferenceSettings] = {
-    TaskType.GRADE_QUIZ_ANSWER: _GRADING_SETTINGS,
     TaskType.MINI_WRITING_EVAL: _GRADING_SETTINGS,
     TaskType.WEEKLY_WRITING_EVAL: _GRADING_SETTINGS,
 }
@@ -59,13 +58,13 @@ def get_settings_for_task(task: str) -> InferenceSettings:
     """Get inference settings for a given task.
 
     Args:
-        task: The task identifier (e.g., 'grade_quiz_answer')
+        task: The task identifier (e.g., 'mini_writing_eval')
 
     Returns:
         InferenceSettings configured for the task type
 
     Note:
-        Grading/evaluation tasks (grade_quiz_answer, mini_writing_eval,
+        Grading/evaluation tasks (mini_writing_eval,
         weekly_writing_eval) use deterministic settings (temperature=0, seed=42)
         per ADR-12. All other tasks use default sampling.
     """

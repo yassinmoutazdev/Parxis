@@ -8,34 +8,12 @@ from app.llm.interface import TaskType
 
 from . import coach, parser, quiz, weekly_report, writing_eval
 
-# Quiz answer grading prompt (inline since it's simple)
-_GRADE_QUIZ_ANSWER_PROMPT = """Grade the learner's quiz answer.
-
-Question: {question_prompt}
-Expected answer: {expected_answer}
-Learner's answer: {learner_answer}
-
-Generate your grading in JSON format:
-{{
-    "score": 0.85
-}}
-
-Important:
-- score must be between 0.0 and 1.0
-Return valid JSON only."""
-
 # Prompt template lookup
 _PROMPT_TEMPLATES: dict[str, str] = {
     # Parser
     TaskType.PARSE_NOTE: parser.get_parse_note_prompt(),
     # Quiz generation
-    TaskType.QUIZ_RECALL: quiz.get_quiz_prompt(TaskType.QUIZ_RECALL),
-    TaskType.QUIZ_FILL_BLANK: quiz.get_quiz_prompt(TaskType.QUIZ_FILL_BLANK),
     TaskType.QUIZ_MULTIPLE_CHOICE: quiz.get_quiz_prompt(TaskType.QUIZ_MULTIPLE_CHOICE),
-    TaskType.QUIZ_ERROR_CORRECTION: quiz.get_quiz_prompt(TaskType.QUIZ_ERROR_CORRECTION),
-    TaskType.QUIZ_REWRITE_NATURALLY: quiz.get_quiz_prompt(TaskType.QUIZ_REWRITE_NATURALLY),
-    # Quiz grading
-    TaskType.GRADE_QUIZ_ANSWER: _GRADE_QUIZ_ANSWER_PROMPT,
     # Writing evaluation
     TaskType.MINI_WRITING_EVAL: writing_eval.get_mini_writing_eval_prompt(),
     TaskType.WEEKLY_WRITING_EVAL: writing_eval.get_weekly_writing_eval_prompt(),

@@ -1,22 +1,22 @@
 import { useState, useCallback } from 'react'
 import { useStartQuiz, useSubmitAnswer } from './hooks'
-import { QuizModeSelector } from './components/QuizModeSelector'
 import { QuizRunner } from './components/QuizRunner'
 import { SessionSummary } from './components/SessionSummary'
-import { LoadingOverlay } from '../../shared/components/LoadingSpinner'
-import type { QuizMode } from '../../api/types'
+import { LoadingOverlay, Button } from '../../shared/components'
+import { Card, CardContent } from '../../shared/components/Card'
 
-type QuizView = 'selector' | 'quiz' | 'summary'
+type QuizView = 'quiz' | 'summary'
 
 export default function QuizPage() {
-  const [view, setView] = useState<QuizView>('selector')
+  const [view, setView] = useState<QuizView>('quiz')
+  const [size, setSize] = useState(10)
 
   const { session, loading: startLoading, error: startError, start, reset } = useStartQuiz()
   const { result, loading: submitLoading, error: submitError, submit, reset: resetResult } = useSubmitAnswer()
 
-  const handleSelectMode = useCallback(async (mode: QuizMode, size: number) => {
+  const handleStartQuiz = useCallback(async (quizSize: number) => {
     try {
-      await start(mode, size)
+      await start(quizSize)
       setView('quiz')
     } catch (e) {
       console.error('Failed to start quiz:', e)
@@ -37,24 +37,11 @@ export default function QuizPage() {
   const handleRestart = useCallback(() => {
     reset()
     resetResult()
-    setView('selector')
+    setView('quiz')
   }, [reset, resetResult])
 
-  if (view === 'selector') {
-    return (
-      <div className="min-h-screen bg-cream px-6 py-8">
-        <div className="max-w-4xl mx-auto relative">
-          <QuizModeSelector
-            onSelectMode={handleSelectMode}
-            disabled={startLoading}
-          />
-          {startLoading && <LoadingOverlay message="Generating your quiz..." />}
-          {startError && (
-            <div className="mt-4 p-4 bg-red-900/20 border border-red-500 rounded-lg text-red-400">{startError}</div>
-          )}
-        </div>
-      </div>
-    )
+  const handleSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSize(Number(e.target.value))
   }
 
   if (view === 'summary' && result) {
@@ -76,8 +63,45 @@ export default function QuizPage() {
   // view === 'quiz'
   if (!session) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <p className="text-ink-muted">Loading quiz...</p>
+      <div className="min-h-screen bg-cream px-6 py-8">
+        <div className="max-w-xl mx-auto">
+          <Card className="mb-6">
+            <CardContent className="space-y-4">
+              <h2 className="text-2xl font-semibold text-ink">Practice Quiz</h2>
+              <p className="text-ink-muted">
+                All questions are multiple choice. Select the number of questions and start.
+              </p>
+              <div className="flex items-center gap-4">
+                <label className="text-ink-muted">
+                  Number of Questions:
+                  <select
+                    value={size}
+                    onChange={handleSizeChange}
+                    disabled={startLoading}
+                    className="ml-2 px-3 py-1.5 bg-surface border border-border rounded-lg text-ink focus:border-accent focus:outline-none"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                    <option value={20}>20</option>
+                  </select>
+                </label>
+              </div>
+              <Button
+                onClick={() => handleStartQuiz(size)}
+                disabled={startLoading}
+                size="lg"
+                className="w-full"
+              >
+                Start Quiz
+              </Button>
+            </CardContent>
+          </Card>
+          {startLoading && <LoadingOverlay message="Generating your quiz..." />}
+          {startError && (
+            <div className="mt-4 p-4 bg-red-900/20 border border-red-500 rounded-lg text-red-400">{startError}</div>
+          )}
+        </div>
       </div>
     )
   }

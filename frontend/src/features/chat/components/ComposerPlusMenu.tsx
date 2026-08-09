@@ -1,13 +1,12 @@
 import { useState } from 'react'
-import { QuizModeSelector } from '../../quizzes/components/QuizModeSelector'
-import type { QuizMode } from '../../../api/types'
+import { Button } from '../../../shared/components/Button'
 
 type PlusTab = 'quiz' | 'writing'
 type WritingChoiceMode = 'mini' | 'weekly'
 
 interface ComposerPlusMenuProps {
   onClose: () => void
-  onStartQuiz: (mode: QuizMode, size: number) => void
+  onStartQuiz: (size: number) => void
   onStartWriting: (mode: WritingChoiceMode) => void
   disabled?: boolean
 }
@@ -26,6 +25,7 @@ export function ComposerPlusMenu({
 }: ComposerPlusMenuProps) {
   const [tab, setTab] = useState<PlusTab>('quiz')
   const [writingChoice, setWritingChoice] = useState<WritingChoiceMode>('mini')
+  const [quizSize, setQuizSize] = useState(10)
 
   return (
     <div className="absolute bottom-full left-0 mb-2 w-[min(90vw,640px)] max-h-[70vh] overflow-y-auto bg-surface border border-border rounded-card shadow-lg p-4 z-20">
@@ -64,13 +64,39 @@ export function ComposerPlusMenu({
       </div>
 
       {tab === 'quiz' ? (
-        <QuizModeSelector
-          disabled={disabled}
-          onSelectMode={(mode, size) => {
-            onStartQuiz(mode, size)
-            onClose()
-          }}
-        />
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-ink">Start Quiz</h2>
+          <p className="text-sm text-ink-muted">
+            Multiple choice questions to test your knowledge.
+          </p>
+          <div className="flex items-center gap-4">
+            <label className="text-ink-muted">
+              Number of Questions:
+              <select
+                value={quizSize}
+                onChange={(e) => setQuizSize(Number(e.target.value))}
+                disabled={disabled}
+                className="ml-2 px-3 py-1.5 bg-surface border border-border rounded-lg text-ink focus:border-accent focus:outline-none"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={20}>20</option>
+              </select>
+            </label>
+          </div>
+          <Button
+            onClick={() => {
+              onStartQuiz(quizSize)
+              onClose()
+            }}
+            disabled={disabled}
+            size="lg"
+            className="w-full"
+          >
+            Start Quiz
+          </Button>
+        </div>
       ) : (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-ink">Choose Writing Type</h2>
@@ -112,7 +138,7 @@ export function ComposerPlusMenu({
               onClose()
             }}
             disabled={disabled}
-            className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:bg-border-strong disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover disabled:bg-border-strong disabled:cursor-not-allowed transition-colors w-full"
           >
             Start Writing
           </button>

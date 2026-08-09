@@ -4,7 +4,7 @@ Corresponds to ARCHITECTURE Section 6.3 (RetrievalService) and PRD Section 16.1.
 """
 
 import random
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any
 
 from app.db.engine import Session
@@ -29,6 +29,7 @@ class RetrievalService:
         cls,
         size: int,
         category_balance: float = CATEGORY_BALANCE,
+        since: date | None = None,
     ) -> list[LearningItem]:
         """Select eligible items for quiz generation.
 
@@ -41,24 +42,45 @@ class RetrievalService:
         Args:
             size: Number of items to select
             category_balance: Target proportion of items from categories with due items (0.0-1.0)
+            since: Optional date to bias selection toward items created/reviewed since this date.
+                   Used for weekly quiz to prefer items from the current week.
 
         Returns:
             List of eligible LearningItems
         """
         now = datetime.utcnow()
+        since_dt = datetime.combine(since, datetime.min.time()) if since else None
 
         with Session() as session:
             # Fetch all non-suspended items
-            all_items = session.query(LearningItem).filter(
+            query = session.query(LearningItem).filter(
                 LearningItem.suspended == False  # noqa: E712
-            ).all()
+            )
+
+            # If since is provided, also fetch items created/reviewed since that date
+            # for potential biasing
+            all_items = query.all()
 
             if not all_items:
                 return []
 
+            # If since is provided, identify items created or reviewed since that date
+            recent_items: set[int] = set()
+            if since_dt:
+                for item in all_items:
+                    if (item.created_at and item.created_at >= since_dt) or \
+                       (item.last_reviewed_at and item.last_reviewed_at >= since_dt):
+                        recent_items.add(item.id)
+
             # Partition into due and not-due
             due_items = [item for item in all_items if is_due(item, now)]
             not_due_items = [item for item in all_items if not is_due(item, now)]
+
+            # If since is provided, bias toward recent items by reordering
+            if since_dt and recent_items:
+                # Move recent items to front of due_items and not_due_items lists
+                due_items.sort(key=lambda x: 0 if x.id in recent_items else 1)
+                not_due_items.sort(key=lambda x: 0 if x.id in recent_items else 1)
 
             # Calculate weakness scores for weighted sampling
             def weakness(item: LearningItem) -> float:

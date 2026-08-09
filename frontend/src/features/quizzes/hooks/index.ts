@@ -1,10 +1,9 @@
 import { useState, useCallback } from 'react'
 import { startQuiz, submitQuizAnswers, getQuizSession } from '../../../api/client'
-import type { QuizMode } from '../../../api/types'
 
 export interface QuizQuestionState {
   id: number
-  question_type: QuizMode
+  question_type: 'MULTIPLE_CHOICE'
   prompt: string
   correct_answer: string | null
   options: string[] | null
@@ -13,7 +12,7 @@ export interface QuizQuestionState {
 export interface QuizSessionState {
   id: number
   quiz_scope: string
-  quiz_mode: QuizMode
+  quiz_mode: 'MULTIPLE_CHOICE'
   started_at: string
   completed_at: string | null
   questions: QuizQuestionState[]
@@ -21,7 +20,7 @@ export interface QuizSessionState {
 
 export interface GradedQuestion {
   id: number
-  question_type: QuizMode
+  question_type: 'MULTIPLE_CHOICE'
   prompt: string
   user_answer: string | null
   is_correct: boolean | null
@@ -34,7 +33,7 @@ export interface GradedQuestion {
 export interface QuizResultState {
   id: number
   quiz_scope: string
-  quiz_mode: QuizMode
+  quiz_mode: 'MULTIPLE_CHOICE'
   started_at: string
   completed_at: string | null
   total_questions: number
@@ -48,11 +47,11 @@ export function useStartQuiz() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const start = useCallback(async (mode: QuizMode, size: number = 10) => {
+  const start = useCallback(async (size: number = 10) => {
     setLoading(true)
     setError(null)
     try {
-      const result = await startQuiz(mode, size)
+      const result = await startQuiz(size)
       setSession(result)
       return result
     } catch (e) {

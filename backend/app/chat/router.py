@@ -11,8 +11,6 @@ from pydantic import BaseModel, Field
 
 from app.chat.service import ChatService
 from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
-from app.db.models.quiz import QuizMode
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -71,7 +69,6 @@ class StartQuizDirectRequest(BaseModel):
     the composer's "+" menu instead of a model decision.
     """
 
-    mode: QuizMode
     size: int = 10
 
 
@@ -276,7 +273,7 @@ async def start_quiz_direct(
 
     Args:
         thread_id: The thread ID
-        request: Quiz mode and size
+        request: Quiz size
 
     Returns:
         ChatMessageResponse with action_type=QUIZ and action_ref_id set
@@ -289,7 +286,7 @@ async def start_quiz_direct(
         ChatService.get_thread(thread_id)
 
         message = await ChatService.start_quiz_action(
-            thread_id, request.mode, request.size
+            thread_id, request.size
         )
         return ChatMessageResponse(
             id=message.id, # type: ignore

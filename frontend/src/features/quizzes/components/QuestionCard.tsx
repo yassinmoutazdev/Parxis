@@ -52,130 +52,48 @@ export function QuestionCard({
       )
     }
 
-    switch (questionType) {
-      case 'FILL_BLANK':
-        return (
-          <div className="flex flex-wrap items-center gap-2">
-            {prompt.split('[blank]').map((part, index) => (
-              <span key={index}>
-                {part}
-                {index < prompt.split('[blank]').length - 1 && (
-                  <input
-                    type="text"
-                    value={userAnswer}
-                    onChange={(e) => onAnswer(id, e.target.value)}
-                    placeholder="type your answer"
-                    disabled={readOnly}
-                    className="mx-2 px-3 py-1.5 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none inline-block w-40"
-                  />
-                )}
-              </span>
+    // Only MULTIPLE_CHOICE is supported now
+    if (options && options.length > 0) {
+      // Render options as clickable cards
+      return (
+        <div className="space-y-4">
+          <p className="text-lg text-ink font-medium">{prompt}</p>
+          <div className="grid grid-cols-1 gap-3">
+            {options.map((option, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => onAnswer(id, option)}
+                disabled={readOnly}
+                className={`
+                  p-4 rounded-card border text-left transition-all
+                  ${userAnswer === option
+                    ? 'bg-accent-tint border-accent text-ink'
+                    : 'bg-surface border-border hover:border-border-strong text-ink'}
+                `}
+              >
+                {option}
+              </button>
             ))}
           </div>
-        )
-
-      case 'MULTIPLE_CHOICE':
-        if (options && options.length > 0) {
-          // Render options as clickable cards
-          return (
-            <div className="space-y-4">
-              <p className="text-lg text-ink font-medium">{prompt}</p>
-              <div className="grid grid-cols-1 gap-3">
-                {options.map((option, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => onAnswer(id, option)}
-                    disabled={readOnly}
-                    className={`
-                      p-4 rounded-card border text-left transition-all
-                      ${userAnswer === option
-                        ? 'bg-accent-tint border-accent text-ink'
-                        : 'bg-surface border-border hover:border-border-strong text-ink'}
-                    `}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )
-        }
-        // Fallback to text input if no options
-        return (
-          <div className="space-y-3">
-            <p className="text-lg text-ink font-medium">{prompt}</p>
-            <input
-              type="text"
-              value={userAnswer}
-              onChange={(e) => onAnswer(id, e.target.value)}
-              placeholder="Type your answer"
-              disabled={readOnly}
-              className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
-            />
-          </div>
-        )
-
-      case 'RECALL':
-        return (
-          <div className="space-y-3">
-            <p className="text-lg text-ink font-medium">{prompt}</p>
-            <input
-              type="text"
-              value={userAnswer}
-              onChange={(e) => onAnswer(id, e.target.value)}
-              placeholder="Type your answer"
-              disabled={readOnly}
-              className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
-            />
-          </div>
-        )
-
-      case 'ERROR_CORRECTION':
-        return (
-          <div className="space-y-3">
-            <p className="text-ink">{prompt}</p>
-            <textarea
-              value={userAnswer}
-              onChange={(e) => onAnswer(id, e.target.value)}
-              placeholder="Write your correction here..."
-              disabled={readOnly}
-              rows={3}
-              className="w-full px-4 py-3 bg-cream border border-border rounded-card text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none resize-none"
-            />
-          </div>
-        )
-
-      case 'REWRITE_NATURALLY':
-        return (
-          <div className="space-y-3">
-            <p className="text-ink">{prompt}</p>
-            <textarea
-              value={userAnswer}
-              onChange={(e) => onAnswer(id, e.target.value)}
-              placeholder="Write your response..."
-              disabled={readOnly}
-              rows={5}
-              className="w-full px-4 py-3 bg-cream border border-border rounded-card text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none resize-none"
-            />
-          </div>
-        )
-
-      default:
-        return (
-          <div className="space-y-3">
-            <p className="text-lg text-ink font-medium">{prompt}</p>
-            <input
-              type="text"
-              value={userAnswer}
-              onChange={(e) => onAnswer(id, e.target.value)}
-              placeholder="Your answer"
-              disabled={readOnly}
-              className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
-            />
-          </div>
-        )
+        </div>
+      )
     }
+
+    // Fallback (should not happen with current backend)
+    return (
+      <div className="space-y-3">
+        <p className="text-lg text-ink font-medium">{prompt}</p>
+        <input
+          type="text"
+          value={userAnswer}
+          onChange={(e) => onAnswer(id, e.target.value)}
+          placeholder="Type your answer"
+          disabled={readOnly}
+          className="w-full px-4 py-2 bg-cream border border-border rounded-lg text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none"
+        />
+      </div>
+    )
   }
 
   return (

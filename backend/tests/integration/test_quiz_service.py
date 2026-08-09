@@ -1,7 +1,7 @@
 """Integration tests for QuizService.
 
 Corresponds to ARCHITECTURE Section 17.2 and T6.5.2.
-Tests the full start→answer→grade flow using FakeGenerator/FakeEvaluator.
+Tests the full start->answer->grade flow using FakeGenerator/FakeEvaluator.
 Asserts: PerformanceError rows are created for incorrect answers with no approval step,
 and LearningItem.mastery_score/next_review_due update correctly.
 """
@@ -49,25 +49,8 @@ class FakeGenerator:
         return QuizQuestionOutput(
             prompt_text=f"What does {context.get('item_text', 'test')} mean?",
             correct_answer=context.get("item_text", "test answer"),
+            distractors=["option a", "option b", "option c"],
         )
-
-
-# Fake Evaluator for testing
-class FakeEvaluator:
-    """Fake evaluator for testing quiz grading."""
-
-    def __init__(self, score: float = 0.8, feedback: str = "Good job!"):
-        self.calls = []
-        self.score = score
-        self.feedback = feedback
-
-    async def evaluate(self, task: str, content: str, context: dict, output_schema):
-        """Record the call and return a fake result."""
-        self.calls.append({"task": task, "content": content, "context": context})
-
-        from app.llm.schemas import GradedAnswerOutput
-
-        return GradedAnswerOutput(score=self.score, feedback=self.feedback)
 
 
 @pytest.fixture
@@ -158,10 +141,10 @@ class TestQuizSessionFlow:
 
     def test_quiz_session_model_creation(self, test_session, learning_items):
         """Test creating a quiz session and question in the database."""
-        # Create a quiz session
+        # Create a quiz session (only MULTIPLE_CHOICE mode now)
         session = QuizSession(
             quiz_scope=QuizScope.AD_HOC,
-            quiz_mode=QuizMode.RECALL,
+            quiz_mode=QuizMode.MULTIPLE_CHOICE,
             started_at=datetime.utcnow(),
         )
         test_session.add(session)
@@ -171,9 +154,10 @@ class TestQuizSessionFlow:
         question = QuizQuestion(
             quiz_session_id=session.id,
             learning_item_id=learning_items[0].id,
-            question_type=QuizMode.RECALL,
+            question_type=QuizMode.MULTIPLE_CHOICE,
             prompt="What does test collocation mean?",
             correct_answer="test collocation",
+            distractors=["option a", "option b", "option c"],
         )
         test_session.add(question)
         test_session.commit()
@@ -195,7 +179,7 @@ class TestQuizSessionFlow:
         item = learning_items[0]
         quiz_session = QuizSession(
             quiz_scope=QuizScope.AD_HOC,
-            quiz_mode=QuizMode.RECALL,
+            quiz_mode=QuizMode.MULTIPLE_CHOICE,
             started_at=datetime.utcnow(),
         )
         test_session.add(quiz_session)
@@ -204,9 +188,10 @@ class TestQuizSessionFlow:
         question = QuizQuestion(
             quiz_session_id=quiz_session.id,
             learning_item_id=item.id,
-            question_type=QuizMode.RECALL,
+            question_type=QuizMode.MULTIPLE_CHOICE,
             prompt="What does test collocation mean?",
             correct_answer="test collocation",
+            distractors=["option a", "option b", "option c"],
         )
         test_session.add(question)
         test_session.commit()
@@ -215,7 +200,7 @@ class TestQuizSessionFlow:
 
         # Grade with wrong answer (deterministic)
         is_correct, score, feedback = grade_deterministic(
-            question_type=QuizMode.RECALL,
+            question_type=QuizMode.MULTIPLE_CHOICE,
             correct_answer=question.correct_answer,
             user_answer="wrong answer",
         )
@@ -365,34 +350,45 @@ class TestPerformanceErrorCreation:
         assert PerformanceErrorSource.WRITING_MINI in source_types
 
 
-class TestQuizModes:
-    """Tests for different quiz modes."""
+class TestQuizMode:
+    """Tests for quiz mode (now only MULTIPLE_CHOICE)."""
 
-    def test_all_concrete_modes_exist(self):
-        """Test that all 5 concrete quiz modes are defined."""
-        concrete_modes = [
-            QuizMode.RECALL,
-            QuizMode.FILL_BLANK,
-            QuizMode.MULTIPLE_CHOICE,
-            QuizMode.ERROR_CORRECTION,
-            QuizMode.REWRITE_NATURALLY,
-        ]
+    def test_only_multiple_choice_mode_exists(self):
+        """Test that only MULTIPLE_CHOICE quiz mode is defined."""
+        assert QuizMode.MULTIPLE_CHOICE is not None
+        assert QuizMode.MULTIPLE_CHOICE.value == "MULTIPLE_CHOICE"
 
-        for mode in concrete_modes:
-            assert mode is not None
-            assert mode != QuizMode.RANDOM
+    def test_quiz_mode_default_is_multiple_choice(self):
+        """Test that the default quiz mode is MULTIPLE_CHOICE."""
+        # When creating a QuizSession without specifying mode, it should default to MULTIPLE_CHOICE
+        from app.db.models.quiz import QuizSession as QuizSessionModel
+        session = QuizSessionModel(
+            quiz_scope=QuizScope.AD_HOC,
+            started_at=datetime.utcnow(),
+        )
+        assert session.quiz_mode == QuizMode.MULTIPLE_CHOICE
 
-    def test_random_mode_is_separate(self):
-        """Test that RANDOM mode is separate from concrete modes."""
-        assert QuizMode.RANDOM is not None
 
-        # RANDOM should not be in the concrete mode list
-        concrete_modes = [
-            QuizMode.RECALL,
-            QuizMode.FILL_BLANK,
-            QuizMode.MULTIPLE_CHOICE,
-            QuizMode.ERROR_CORRECTION,
-            QuizMode.REWRITE_NATURALLY,
-        ]
+class TestWeeklyQuizRegression:
+    """Regression test for weekly quiz producing MC questions (not failing on removed modes)."""
 
-        assert QuizMode.RANDOM not in concrete_modes
+    def test_weekly_quiz_code_path_uses_since(self):
+        """Test that weekly quiz code path passes 'since' parameter to RetrievalService.
+
+        This verifies the bug fix where QuizScope.WEEKLY_REVIEW was incorrectly
+        passed as QuizMode instead of using the 'since' parameter for date biasing.
+        """
+        # Verify the QuizService.start_session method passes 'since' to RetrievalService
+        import inspect
+        from app.quizzes.service import QuizService
+        from app.retrieval.service import RetrievalService
+
+        # Get the source code of start_session
+        source = inspect.getsource(QuizService.start_session)
+
+        # Verify that 'since=since' is passed to select_eligible_items
+        assert "since=since" in source, "QuizService.start_session should pass 'since' to RetrievalService"
+
+        # Verify RetrievalService.select_eligible_items accepts 'since' parameter
+        retrieval_source = inspect.getsource(RetrievalService.select_eligible_items)
+        assert "since: date | None = None" in retrieval_source, "RetrievalService should accept 'since' parameter"

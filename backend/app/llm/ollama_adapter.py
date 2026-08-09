@@ -283,7 +283,7 @@ class OllamaAdapter:
         """Evaluate content based on a task and context.
 
         Args:
-            task: The task identifier (e.g., 'grade_quiz_answer', 'mini_writing_eval')
+            task: The task identifier (e.g., 'mini_writing_eval', 'weekly_writing_eval')
             content: The content to evaluate
             context: Context data for the evaluation task
             output_schema: Pydantic model class defining the expected output structure

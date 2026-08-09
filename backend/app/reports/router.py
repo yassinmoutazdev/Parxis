@@ -103,16 +103,22 @@ async def start_weekly_quiz() -> dict:
     """Start a weekly quiz session.
 
     Delegates to QuizService with quiz_scope=WEEKLY_REVIEW.
+    Weekly quiz uses a larger size (15) and biases toward items
+    studied/reviewed in the current week.
 
     Returns:
         Quiz session and questions
     """
     try:
+        # Get current week start for scope-aware retrieval
+        from datetime import date
+        week_start, _ = ReportService.get_week_boundary()
+
         # Start a quiz with weekly review scope
         session, questions = await QuizService.start_session(
-            mode=QuizScope.WEEKLY_REVIEW,
-            size=10,  # Default size for weekly quiz
+            size=15,  # Larger size for weekly quiz
             scope=QuizScope.WEEKLY_REVIEW,
+            since=week_start,
         )
 
         return {

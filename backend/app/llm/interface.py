@@ -41,8 +41,8 @@ class Generator(Protocol):
 class Evaluator(Protocol):
     """Protocol for evaluating content with LLM.
 
-    The Evaluator is responsible for grading or evaluating content (like quiz answers
-    or writing submissions) based on provided context.
+    The Evaluator is responsible for grading or evaluating content (like writing submissions)
+    based on provided context.
     """
 
     async def evaluate(
@@ -55,7 +55,7 @@ class Evaluator(Protocol):
         """Evaluate content based on a task and context.
 
         Args:
-            task: The task identifier (e.g., 'grade_quiz_answer', 'mini_writing_eval')
+            task: The task identifier (e.g., 'mini_writing_eval', 'weekly_writing_eval')
             content: The content to evaluate
             context: Context data for the evaluation task
             output_schema: Pydantic model class defining the expected output structure
@@ -76,15 +76,7 @@ class TaskType:
     PARSE_NOTE = "parse_note"
 
     # Quiz generation tasks
-    QUIZ_RECALL = "quiz_recall"
-    QUIZ_FILL_BLANK = "quiz_fill_blank"
     QUIZ_MULTIPLE_CHOICE = "quiz_multiple_choice"
-    QUIZ_ERROR_CORRECTION = "quiz_error_correction"
-    QUIZ_REWRITE_NATURALLY = "quiz_rewrite_naturally"
-    QUIZ_RANDOM = "quiz_random"
-
-    # Quiz grading tasks
-    GRADE_QUIZ_ANSWER = "grade_quiz_answer"
 
     # Writing evaluation tasks
     MINI_WRITING_EVAL = "mini_writing_eval"
@@ -104,12 +96,7 @@ class TaskType:
     GENERATION_TASKS = frozenset(
         {
             PARSE_NOTE,
-            QUIZ_RECALL,
-            QUIZ_FILL_BLANK,
             QUIZ_MULTIPLE_CHOICE,
-            QUIZ_ERROR_CORRECTION,
-            QUIZ_REWRITE_NATURALLY,
-            QUIZ_RANDOM,
             WEEKLY_TOPIC,
             WEEKLY_NARRATIVE,
             COACH_CHAT_AFTER_QUIZ,
@@ -121,7 +108,6 @@ class TaskType:
     # All grading/evaluation tasks (for deterministic settings)
     GRADING_TASKS = frozenset(
         {
-            GRADE_QUIZ_ANSWER,
             MINI_WRITING_EVAL,
             WEEKLY_WRITING_EVAL,
         }

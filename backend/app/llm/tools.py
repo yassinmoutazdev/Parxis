@@ -24,17 +24,12 @@ START_QUIZ_TOOL: dict[str, Any] = {
         "parameters": {
             "type": "object",
             "properties": {
-                "quiz_mode": {
-                    "type": "string",
-                    "enum": ["RECALL", "FILL_BLANK", "MULTIPLE_CHOICE"],
-                    "description": "The quiz mode best suited to what the learner needs.",
-                },
                 "quiz_size": {
                     "type": "integer",
                     "description": "Number of questions, default 10 if unsure.",
                 },
             },
-            "required": ["quiz_mode"],
+            "required": ["quiz_size"],
         },
     },
 }

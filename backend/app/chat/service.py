@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from app.db.engine import Session
 from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
 from app.db.models.learning_item import LearningItem
-from app.db.models.quiz import QuizMode
 from app.llm import ollama_adapter
 from app.llm.interface import TaskType
 from app.llm.prompts import coach as coach_prompts
@@ -309,17 +308,12 @@ class ChatService:
 
             if result.tool_name == "start_quiz":
                 args = result.tool_arguments or {}
-                quiz_mode_str = args.get("quiz_mode") or "RECALL"
                 quiz_size = args.get("quiz_size") or 10
-                try:
-                    quiz_mode = QuizMode(quiz_mode_str)
-                except ValueError:
-                    quiz_mode = QuizMode.RECALL
 
                 # Tool call ends the turn: a short client-side confirmation
                 # is enough, no extra LLM round-trip (per ADR).
                 assistant_message = await cls.start_quiz_action(
-                    thread_id, quiz_mode, quiz_size
+                    thread_id, quiz_size
                 )
 
             elif result.tool_name == "start_writing":
@@ -392,7 +386,7 @@ class ChatService:
 
     @classmethod
     async def start_quiz_action(
-        cls, thread_id: int, mode: QuizMode, size: int
+        cls, thread_id: int, size: int
     ) -> ChatMessage:
         """Start a quiz action in a thread.
 
@@ -401,7 +395,6 @@ class ChatService:
 
         Args:
             thread_id: The thread ID
-            mode: The quiz mode
             size: Number of questions
 
         Returns:
@@ -409,7 +402,6 @@ class ChatService:
         """
         # Start the quiz session
         session, _ = await QuizService.start_session(
-            mode=mode,
             size=size,
         )
 

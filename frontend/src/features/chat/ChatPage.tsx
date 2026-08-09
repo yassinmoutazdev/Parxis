@@ -15,7 +15,7 @@ import { QuizRunner } from '../quizzes/components/QuizRunner'
 import { ChatWritingWidget } from './components/ChatWritingWidget'
 import { ComposerPlusMenu } from './components/ComposerPlusMenu'
 import { getWritingPrompt } from '../../api/client'
-import type { QuizSession, QuizQuestion, QuizMode, WritingPrompt } from '../../api/types'
+import type { QuizSession, QuizQuestion, WritingPrompt } from '../../api/types'
 
 interface QuizWidgetData {
   sessionId: number
@@ -163,11 +163,11 @@ export default function ChatPage() {
   // direct-trigger endpoints, then following the same rendering path as the
   // LLM-triggered case (thread refetch -> widget appears from
   // action_type/action_ref_id).
-  const handleStartQuizDirect = async (mode: QuizMode, size: number) => {
+  const handleStartQuizDirect = async (size: number) => {
     setError(null)
     try {
       const thread = await ensureThread()
-      const message = await startQuizDirect.mutateAsync({ threadId: thread, mode, size })
+      const message = await startQuizDirect.mutateAsync({ threadId: thread, size })
       await queryClient.refetchQueries({ queryKey: ['chat', 'thread', thread] })
       if (message.action_type === 'QUIZ' && message.action_ref_id) {
         await loadQuizWidget(message.action_ref_id)
@@ -374,7 +374,7 @@ function Composer({
   onSubmit: () => void
   disabled?: boolean
   placeholder?: string
-  onStartQuiz?: (mode: QuizMode, size: number) => void
+  onStartQuiz?: (size: number) => void
   onStartWriting?: (mode: 'mini' | 'weekly') => void
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)

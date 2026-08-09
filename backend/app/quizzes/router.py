@@ -17,9 +17,11 @@ router = APIRouter(prefix="/api/quizzes", tags=["quizzes"])
 
 
 class StartQuizRequest(BaseModel):
-    """Request body for starting a quiz session."""
+    """Request body for starting a quiz session.
 
-    mode: QuizMode
+    Note: 'mode' field is deprecated and ignored. All quizzes are MULTIPLE_CHOICE.
+    """
+
     size: int = 10
     scope: QuizScope = QuizScope.AD_HOC
     week_id: int | None = None
@@ -85,11 +87,11 @@ async def start_quiz(request: StartQuizRequest) -> QuizSessionResponse:
     """Start a new quiz session.
 
     ARCHITECTURE Section 6.3:
-    - POST /quizzes { mode, size } - synchronous per ADR-08
+    - POST /quizzes { size } - synchronous per ADR-08
     - Returns QuizSession + QuizQuestion[] (prompts only, no answers)
 
     Args:
-        request: Quiz start request with mode, size, etc.
+        request: Quiz start request with size, scope, etc.
 
     Returns:
         QuizSessionResponse with session info and questions
@@ -99,7 +101,6 @@ async def start_quiz(request: StartQuizRequest) -> QuizSessionResponse:
     """
     try:
         session, questions = await QuizService.start_session(
-            mode=request.mode,
             size=request.size,
             scope=request.scope,
             week_id=request.week_id,

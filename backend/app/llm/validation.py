@@ -76,49 +76,30 @@ def validate_parsed_note(
 
 def validate_quiz_question(
     output: QuizQuestionOutput,
-    quiz_mode: str,
 ) -> tuple[QuizQuestionOutput | None, list[str]]:
-    """Validate quiz question output.
+    """Validate quiz question output (multiple choice only).
 
     Corresponds to ARCHITECTURE Section 9.2 (Validation rules):
     - multiple_choice: distractors must have exactly 3 entries
-    - fill_blank: prompt_text must contain ___ marker
-    - error_correction: prompt_text must NOT equal correct_answer
 
     Args:
         output: The quiz question output
-        quiz_mode: The quiz mode (e.g., 'quiz_multiple_choice')
 
     Returns:
         Tuple of (None if invalid with error in warnings, or output)
     """
     warnings: list[str] = []
 
-    if quiz_mode == "quiz_multiple_choice":
-        # MC: exactly 3 distractors, none equal to correct_answer
-        if not output.distractors or len(output.distractors) != 3:
-            warnings.append("multiple_choice requires exactly 3 distractors")
-            return None, warnings
+    # MC: exactly 3 distractors, none equal to correct_answer
+    if not output.distractors or len(output.distractors) != 3:
+        warnings.append("multiple_choice requires exactly 3 distractors")
+        return None, warnings
 
-        if output.correct_answer:
-            for d in output.distractors:
-                if d.lower() == output.correct_answer.lower():
-                    warnings.append("distractor matches correct_answer")
-                    return None, warnings
-
-    elif quiz_mode == "quiz_fill_blank":
-        # fill_blank: must contain [blank] marker
-        if "[blank]" not in output.prompt_text:
-            warnings.append("fill_blank prompt must contain [blank] marker")
-            return None, warnings
-
-    elif quiz_mode == "quiz_error_correction":
-        # error_correction: prompt must NOT equal correct_answer
-        if output.prompt_text == output.correct_answer:
-            warnings.append(
-                "error_correction prompt must differ from correct_answer"
-            )
-            return None, warnings
+    if output.correct_answer:
+        for d in output.distractors:
+            if d.lower() == output.correct_answer.lower():
+                warnings.append("distractor matches correct_answer")
+                return None, warnings
 
     return output, warnings
 
@@ -308,11 +289,8 @@ def validate_output(
         note_content = context.get("note_content", "") if context else ""
         output, warnings = validate_parsed_note(output, note_content)
 
-    elif task.startswith("quiz_") and task != "grade_quiz_answer":
-        output, warnings = validate_quiz_question(output, task)
-
-    elif task == "grade_quiz_answer":
-        output = validate_graded_answer(output)
+    elif task == "quiz_multiple_choice":
+        output, warnings = validate_quiz_question(output)
 
     elif task == "mini_writing_eval":
         output = validate_mini_writing_eval(output)

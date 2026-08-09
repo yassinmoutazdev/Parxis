@@ -158,12 +158,11 @@ export async function getLearningItem(id: number): Promise<LearningItem> {
 
 // Quizzes
 export async function startQuiz(
-  mode: string,
   size: number
 ): Promise<QuizSession & { questions: QuizQuestion[] }> {
   return request('/quizzes', {
     method: 'POST',
-    body: JSON.stringify({ mode, size }),
+    body: JSON.stringify({ size }),
   })
 }
 

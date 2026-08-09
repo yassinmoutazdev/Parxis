@@ -9,7 +9,7 @@ export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'EDITED_APPROVED' | 'REJEC
 export type ItemType = 'COLLOCATION' | 'IDIOM' | 'PHRASAL_VERB' | 'GRAMMAR_NOTE' | 'PERSONAL_EXAMPLE'
 
 export type QuizScope = 'AD_HOC' | 'WEEKLY_REVIEW'
-export type QuizMode = 'RECALL' | 'FILL_BLANK' | 'MULTIPLE_CHOICE' | 'ERROR_CORRECTION' | 'REWRITE_NATURALLY' | 'RANDOM'
+export type QuizMode = 'MULTIPLE_CHOICE'
 export type GradedBy = 'DETERMINISTIC' | 'LLM'
 
 export type WritingPromptType = 'MINI' | 'WEEKLY'

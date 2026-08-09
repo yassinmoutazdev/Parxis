@@ -5,7 +5,7 @@ Corresponds to ARCHITECTURE Section 6.3 (Quiz Generation & Grading).
 
 import logging
 import random
-from datetime import datetime
+from datetime import date, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,7 @@ from app.db.models.performance_error import PerformanceError, PerformanceErrorSo
 from app.db.models.quiz import GradedBy, QuizMode, QuizQuestion, QuizScope, QuizSession
 from app.llm import ollama_adapter
 from app.llm.interface import TaskType
-from app.llm.provenance import stamp_provenance, to_dict
-from app.llm.schemas import GradedAnswerOutput, QuizQuestionOutput
+from app.llm.schemas import QuizQuestionOutput
 from app.llm.validation import validate_output
 from app.retrieval.service import RetrievalService
 from app.scheduler.mastery import SchedulerSettings, update_mastery
@@ -29,30 +28,13 @@ class QuizService:
     grade answers, and update mastery.
     """
 
-    # Quiz modes that require deterministic grading
-    DETERMINISTIC_GRADING_MODES = frozenset(
-        {
-            QuizMode.RECALL,
-            QuizMode.FILL_BLANK,
-            QuizMode.MULTIPLE_CHOICE,
-        }
-    )
-
-    # Quiz modes that use LLM grading (free-text)
-    LLM_GRADING_MODES = frozenset(
-        {
-            QuizMode.ERROR_CORRECTION,
-            QuizMode.REWRITE_NATURALLY,
-        }
-    )
-
     @classmethod
     async def start_session(
         cls,
-        mode: QuizMode,
         size: int,
         scope: QuizScope = QuizScope.AD_HOC,
         week_id: int | None = None,
+        since: date | None = None,
     ) -> tuple[QuizSession, list[QuizQuestion]]:
         """Start a new quiz session.
 
@@ -61,35 +43,36 @@ class QuizService:
         2. Create QuizSession with status=IN_PROGRESS
         3. For each selected item:
            - Get prompt context via RetrievalService.item_context()
-           - Call Generator.generate(task=f"quiz_{mode}", ...)
+           - Call Generator.generate(task="quiz_multiple_choice", ...)
            - Persist QuizQuestion row
         4. Return QuizSession + QuizQuestion[] (prompts only, no answers)
 
         Args:
-            mode: Quiz mode (RECALL, FILL_BLANK, etc. or RANDOM)
             size: Number of questions to generate
             scope: Quiz scope (AD_HOC or WEEKLY_REVIEW)
             week_id: Optional week ID for weekly quizzes
+            since: Optional date to bias item selection toward items
+                   created/reviewed since this date (used for weekly quiz)
 
         Returns:
             Tuple of (QuizSession, list of QuizQuestion)
         """
         # Select eligible items
-        items = RetrievalService.select_eligible_items(size=size)
+        items = RetrievalService.select_eligible_items(size=size, since=since)
         if not items:
             raise ValueError("No eligible items found for quiz")
 
         # Get more items for backfill if needed
-        backfill_items = RetrievalService.select_eligible_items(size=size * 2)
+        backfill_items = RetrievalService.select_eligible_items(size=size * 2, since=since)
         # Filter out items already selected
         selected_ids = {item.id for item in items}
         backfill_pool = [item for item in backfill_items if item.id not in selected_ids]
 
-        # Create session
+        # Create session (always MULTIPLE_CHOICE mode)
         with Session() as session:
             quiz_session = QuizSession(
                 quiz_scope=scope,
-                quiz_mode=mode,
+                quiz_mode=QuizMode.MULTIPLE_CHOICE,
                 started_at=datetime.utcnow(),
                 week_id=week_id,
             )
@@ -105,7 +88,6 @@ class QuizService:
                 question = await cls._generate_question(
                     session=session,
                     item=item,
-                    session_mode=mode,
                     quiz_session_id=quiz_session.id,
                     retry_count=0,
                 )
@@ -121,7 +103,6 @@ class QuizService:
                         question = await cls._generate_question(
                             session=session,
                             item=backfill_item,
-                            session_mode=mode,
                             quiz_session_id=quiz_session.id,
                             retry_count=1,
                         )
@@ -143,7 +124,6 @@ class QuizService:
         cls,
         session: Session,
         item: LearningItem,
-        session_mode: QuizMode,
         quiz_session_id: int,
         retry_count: int = 0,
     ) -> QuizQuestion | None:
@@ -152,22 +132,17 @@ class QuizService:
         Args:
             session: Database session
             item: LearningItem to generate question for
-            session_mode: The session's quiz mode (or RANDOM)
             quiz_session_id: The quiz session ID
             retry_count: Current retry attempt (for validation failure retry)
 
         Returns:
             QuizQuestion if successful, None if validation failed after retries
         """
-        # Determine the mode for this question
-        if session_mode == QuizMode.RANDOM:
-            # Random mode: pick one of the 7 concrete modes
-            question_mode = cls._select_random_mode()
-        else:
-            question_mode = session_mode
+        # Always use MULTIPLE_CHOICE mode
+        question_mode = QuizMode.MULTIPLE_CHOICE
 
         # Get the task name for the generator
-        task = cls._mode_to_task(question_mode)
+        task = TaskType.QUIZ_MULTIPLE_CHOICE
 
         # Get prompt context from the learning item
         prompt_context = RetrievalService.item_context(item)
@@ -196,7 +171,7 @@ class QuizService:
 
             # Build options list for MULTIPLE_CHOICE (shuffled correct + distractors)
             options_json: list[str] | None = None
-            if question_mode == QuizMode.MULTIPLE_CHOICE and result.distractors:
+            if result.distractors:
                 options_json = [result.correct_answer] + result.distractors
                 random.shuffle(options_json)
 
@@ -224,44 +199,6 @@ class QuizService:
                 return None
 
     @classmethod
-    def _select_random_mode(cls) -> QuizMode:
-        """Select a random concrete quiz mode.
-
-        Excludes RANDOM mode itself - returns one of the 7 concrete modes.
-
-        Returns:
-            A random concrete QuizMode
-        """
-        concrete_modes = [
-            QuizMode.RECALL,
-            QuizMode.FILL_BLANK,
-            QuizMode.MULTIPLE_CHOICE,
-            QuizMode.ERROR_CORRECTION,
-            QuizMode.REWRITE_NATURALLY,
-        ]
-        return random.choice(concrete_modes)
-
-    @classmethod
-    def _mode_to_task(cls, mode: QuizMode) -> str:
-        """Convert QuizMode to generator task name.
-
-        Args:
-            mode: QuizMode to convert
-
-        Returns:
-            Task name string (e.g., 'quiz_recall')
-        """
-        mode_to_task = {
-            QuizMode.RECALL: TaskType.QUIZ_RECALL,
-            QuizMode.FILL_BLANK: TaskType.QUIZ_FILL_BLANK,
-            QuizMode.MULTIPLE_CHOICE: TaskType.QUIZ_MULTIPLE_CHOICE,
-            QuizMode.ERROR_CORRECTION: TaskType.QUIZ_ERROR_CORRECTION,
-            QuizMode.REWRITE_NATURALLY: TaskType.QUIZ_REWRITE_NATURALLY,
-            QuizMode.RANDOM: TaskType.QUIZ_RANDOM,
-        }
-        return mode_to_task.get(mode, TaskType.QUIZ_RECALL)
-
-    @classmethod
     async def grade_session(
         cls,
         session_id: int,
@@ -271,8 +208,7 @@ class QuizService:
 
         ARCHITECTURE Section 6.3 (sequence diagram, grading portion):
         1. For each answer:
-           - If deterministic type: grade_deterministic()
-           - Else: LLM grading via Evaluator.evaluate(task="grade_quiz_answer")
+           - Deterministic grading (all questions are MULTIPLE_CHOICE)
            - Update QuizQuestion with user_answer, is_correct/score, feedback, graded_by
            - If incorrect (score < CORRECT_THRESHOLD): INSERT PerformanceError row
            - Update mastery via SchedulerModule.update_mastery()
@@ -303,7 +239,7 @@ class QuizService:
 
             settings = SchedulerSettings.get()
 
-            # Grade each answer
+            # Grade each answer (all MULTIPLE_CHOICE - deterministic)
             for question in questions:
                 user_answer = answers.get(question.id)
                 if user_answer is None:
@@ -311,30 +247,14 @@ class QuizService:
 
                 question.user_answer = user_answer
 
-                # Determine grading method based on question type
-                provenance = None
-                if question.question_type in cls.DETERMINISTIC_GRADING_MODES:
-                    # Deterministic grading
-                    is_correct, score, feedback = grade_deterministic(
-                        question_type=question.question_type,
-                        correct_answer=question.correct_answer,
-                        user_answer=user_answer,
-                    )
-                    question.graded_by = GradedBy.DETERMINISTIC
-                    question.feedback = feedback
-                else:
-                    # LLM grading with provenance stamping (ADR-13)
-                    is_correct, score, provenance = await cls._grade_with_llm(
-                        question=question,
-                        user_answer=user_answer,
-                    )
-                    question.graded_by = GradedBy.LLM
-                    question.feedback = None  # No per-question feedback; comprehensive feedback in chat
-                    if provenance:
-                        question.evaluator_provider = provenance.get("evaluator_provider")
-                        question.evaluator_model = provenance.get("evaluator_model")
-                        question.prompt_version = provenance.get("prompt_version")
-                        question.rubric_version = provenance.get("rubric_version")
+                # Deterministic grading for MULTIPLE_CHOICE
+                is_correct, score, feedback = grade_deterministic(
+                    question_type=question.question_type,
+                    correct_answer=question.correct_answer,
+                    user_answer=user_answer,
+                )
+                question.graded_by = GradedBy.DETERMINISTIC
+                question.feedback = feedback
 
                 question.is_correct = is_correct
                 question.score = score
@@ -360,51 +280,6 @@ class QuizService:
             session.commit()
             session.refresh(quiz_session)
             return quiz_session
-
-    @classmethod
-    async def _grade_with_llm(
-        cls,
-        question: QuizQuestion,
-        user_answer: str,
-    ) -> tuple[bool, float, dict[str, str | None] | None]:
-        """Grade a quiz answer using LLM evaluation.
-
-        Args:
-            question: The QuizQuestion being graded
-            user_answer: The user's answer
-
-        Returns:
-            Tuple of (is_correct, score, provenance_dict)
-        """
-
-        # Build context for grading
-        context = {
-            "question_prompt": question.prompt,
-            "expected_answer": question.correct_answer or "",
-            "learner_answer": user_answer,
-        }
-
-        # Call the evaluator
-        result = await ollama_adapter.ollama_adapter.evaluate(
-            task=TaskType.GRADE_QUIZ_ANSWER,
-            content=user_answer,
-            context=context,
-            output_schema=GradedAnswerOutput,
-        )
-
-        # Validate and clamp the score
-        result, _ = validate_output("grade_quiz_answer", result)
-        score = max(0.0, min(1.0, result.score))
-
-        # Determine if correct based on threshold
-        settings = SchedulerSettings.get()
-        is_correct = score >= settings.correct_threshold
-
-        # Create provenance stamp (ADR-13)
-        provenance = stamp_provenance(prompt_version="1.0.0")  # TODO: use actual version from prompts
-        provenance_dict = to_dict(provenance)
-
-        return is_correct, score, provenance_dict
 
     @classmethod
     def _create_performance_error(

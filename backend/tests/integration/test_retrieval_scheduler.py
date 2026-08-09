@@ -19,7 +19,7 @@ from app.db.models.approval import ApprovalQueue, ApprovalSourceType, ApprovalSt
 from app.db.models.learning_item import LearningItem, ItemType, Tag, LearningItemTag
 from app.db.models.learning_correction import LearningCorrection
 from app.db.models.performance_error import PerformanceError, PerformanceErrorSource
-from app.db.models.quiz import QuizSession, QuizQuestion
+from app.db.models.quiz import QuizSession, QuizQuestion, QuizMode
 from app.db.models.writing import WritingPrompt, WritingSubmission, WritingEvaluation
 from app.db.models.report import WeeklyReport
 from app.db.models.system import AuditLog, Config
@@ -252,7 +252,7 @@ class TestWeekScopedQueries:
         # Create a completed session
         session = QuizSession(
             quiz_scope="AD_HOC",
-            quiz_mode="RECALL",
+            quiz_mode=QuizMode.MULTIPLE_CHOICE,
             started_at=datetime(2024, 1, 5),
             completed_at=datetime(2024, 1, 5),
         )
@@ -264,7 +264,7 @@ class TestWeekScopedQueries:
         q1 = QuizQuestion(
             quiz_session_id=session.id,
             learning_item_id=1,
-            question_type="RECALL",
+            question_type=QuizMode.MULTIPLE_CHOICE,
             prompt="test prompt",
             correct_answer="answer",
             is_correct=True,
@@ -273,7 +273,7 @@ class TestWeekScopedQueries:
         q2 = QuizQuestion(
             quiz_session_id=session.id,
             learning_item_id=2,
-            question_type="RECALL",
+            question_type=QuizMode.MULTIPLE_CHOICE,
             prompt="test prompt 2",
             correct_answer="answer2",
             is_correct=False,

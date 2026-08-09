@@ -98,17 +98,15 @@ export function useStartQuizDirect() {
   return useMutation({
     mutationFn: async ({
       threadId,
-      mode,
       size,
     }: {
       threadId: number
-      mode: string
       size: number
     }): Promise<ChatMessage> => {
       const res = await fetch(`${API_BASE}/threads/${threadId}/quiz`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, size }),
+        body: JSON.stringify({ size }),
       })
       if (!res.ok) throw new Error('Failed to start quiz')
       return res.json()

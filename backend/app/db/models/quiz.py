@@ -14,14 +14,13 @@ class QuizScope(str, Enum):
 
 
 class QuizMode(str, Enum):
-    """Quiz mode/types."""
+    """Quiz mode/types.
 
-    RECALL = "RECALL"
-    FILL_BLANK = "FILL_BLANK"
+    Consolidated to MULTIPLE_CHOICE only (Part A). Historical rows with other
+    mode values remain as-is and are not backfilled.
+    """
+
     MULTIPLE_CHOICE = "MULTIPLE_CHOICE"
-    ERROR_CORRECTION = "ERROR_CORRECTION"
-    REWRITE_NATURALLY = "REWRITE_NATURALLY"
-    RANDOM = "RANDOM"
 
 
 class QuizSession(SQLModel, table=True):
@@ -31,7 +30,7 @@ class QuizSession(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     quiz_scope: QuizScope = Field(default=QuizScope.AD_HOC, index=True)
-    quiz_mode: QuizMode = Field(default=QuizMode.RECALL, index=True)
+    quiz_mode: QuizMode = Field(default=QuizMode.MULTIPLE_CHOICE, index=True)
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: datetime | None = Field(default=None)
     week_id: int | None = Field(default=None, foreign_key="weekly_report.id", index=True)
