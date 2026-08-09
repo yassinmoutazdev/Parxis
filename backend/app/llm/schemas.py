@@ -133,13 +133,15 @@ class WeeklyWritingEvalOutput(BaseModel):
     """Output schema for weekly writing evaluation task.
 
     Corresponds to ARCHITECTURE Section 9.5 (WeeklyWritingEvalOutput).
+    Updated for CEFR banding (Part B).
     """
 
+    cefr_band: Literal["A1", "A2", "B1", "B2", "C1", "C2"]
+    band_justification: str = Field(description="Specific justification referencing text features")
     grammar: DimensionScore
     naturalness: DimensionScore
     vocabulary: DimensionScore
     coherence: DimensionScore
-    overall: DimensionScore
     suggested_items: list[ParsedItem] = Field(default_factory=list)
 
 

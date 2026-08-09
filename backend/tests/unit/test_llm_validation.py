@@ -108,7 +108,7 @@ class TestValidateParsedNote:
 
 
 class TestValidateQuizQuestion:
-    """Tests for validate_quiz_question (Section 9.2)."""
+    """Tests for validate_quiz_question (Section 9.2 - multiple choice only)."""
 
     def test_multiple_choice_valid(self):
         """Valid multiple choice passes."""
@@ -118,7 +118,7 @@ class TestValidateQuizQuestion:
             distractors=["wrong1", "wrong2", "wrong3"],
         )
 
-        result, warnings = validate_quiz_question(output, "quiz_multiple_choice")
+        result, warnings = validate_quiz_question(output)
 
         assert result is not None
         assert len(warnings) == 0
@@ -131,7 +131,7 @@ class TestValidateQuizQuestion:
             distractors=["wrong1"],  # Only 1
         )
 
-        result, warnings = validate_quiz_question(output, "quiz_multiple_choice")
+        result, warnings = validate_quiz_question(output)
 
         assert result is None
         assert "exactly 3 distractors" in warnings[0]
@@ -144,58 +144,10 @@ class TestValidateQuizQuestion:
             distractors=["the meaning", "wrong2", "wrong3"],
         )
 
-        result, warnings = validate_quiz_question(output, "quiz_multiple_choice")
+        result, warnings = validate_quiz_question(output)
 
         assert result is None
         assert "distractor matches" in warnings[0]
-
-    def test_fill_blank_valid(self):
-        """Valid fill_blank passes."""
-        output = QuizQuestionOutput(
-            prompt_text="The phrase [blank] means something",
-            correct_answer="test phrase",
-        )
-
-        result, warnings = validate_quiz_question(output, "quiz_fill_blank")
-
-        assert result is not None
-        assert len(warnings) == 0
-
-    def test_fill_blank_missing_marker(self):
-        """Missing [blank] marker fails."""
-        output = QuizQuestionOutput(
-            prompt_text="The phrase is missing",  # No [blank]
-            correct_answer="test phrase",
-        )
-
-        result, warnings = validate_quiz_question(output, "quiz_fill_blank")
-
-        assert result is None
-        assert "[blank] marker" in warnings[0]
-
-    def test_error_correction_valid(self):
-        """Valid error_correction passes."""
-        output = QuizQuestionOutput(
-            prompt_text="This has a error",
-            correct_answer="This has an error",
-        )
-
-        result, warnings = validate_quiz_question(output, "quiz_error_correction")
-
-        assert result is not None
-        assert len(warnings) == 0
-
-    def test_error_correction_same_as_answer(self):
-        """Prompt same as correct_answer fails."""
-        output = QuizQuestionOutput(
-            prompt_text="This has an error",
-            correct_answer="This has an error",  # Same
-        )
-
-        result, warnings = validate_quiz_question(output, "quiz_error_correction")
-
-        assert result is None
-        assert "must differ" in warnings[0]
 
 
 class TestValidateGradedAnswer:
@@ -257,7 +209,7 @@ class TestValidateMiniWritingEval:
 
 
 class TestValidateWeeklyWritingEval:
-    """Tests for validate_weekly_writing_eval (Section 9.5)."""
+    """Tests for validate_weekly_writing_eval (Section 9.5 + Part B CEFR)."""
 
     def test_scores_in_range(self):
         """Scores in valid range pass."""
@@ -267,6 +219,8 @@ class TestValidateWeeklyWritingEval:
             vocabulary=DimensionScore(score=75, feedback="Good"),
             coherence=DimensionScore(score=90, feedback="Good"),
             overall=DimensionScore(score=82, feedback="Good overall"),
+            cefr_band="B2",
+            band_justification="Demonstrates good command of language with minor errors.",
         )
 
         result, warnings = validate_weekly_writing_eval(output)
@@ -282,6 +236,8 @@ class TestValidateWeeklyWritingEval:
             "vocabulary": {"score": 75, "feedback": "Good"},
             "coherence": {"score": 90, "feedback": "Good"},
             "overall": {"score": 82, "feedback": "Good"},
+            "cefr_band": "B2",
+            "band_justification": "Test justification",
         }
         output = WeeklyWritingEvalOutput.model_validate(data)
 
@@ -290,20 +246,22 @@ class TestValidateWeeklyWritingEval:
         assert result.grammar.score == 100.0
         assert result.naturalness.score == 0.0
 
-    def test_empty_overall_feedback_warning(self):
-        """Empty overall.feedback produces warning."""
+    def test_empty_band_justification_warning(self):
+        """Empty band_justification produces warning."""
         output = WeeklyWritingEvalOutput(
             grammar=DimensionScore(score=85, feedback="Good"),
             naturalness=DimensionScore(score=80, feedback="Good"),
             vocabulary=DimensionScore(score=75, feedback="Good"),
             coherence=DimensionScore(score=90, feedback="Good"),
-            overall=DimensionScore(score=82, feedback=""),  # Empty
+            overall=DimensionScore(score=82, feedback="Good overall"),
+            cefr_band="B2",
+            band_justification="",  # Empty
         )
 
         result, warnings = validate_weekly_writing_eval(output)
 
         assert len(warnings) == 1
-        assert "non-empty" in warnings[0]
+        assert "band_justification" in warnings[0]
 
 
 class TestValidateWeeklyNarrative:

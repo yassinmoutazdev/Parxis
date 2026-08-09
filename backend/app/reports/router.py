@@ -30,6 +30,9 @@ class WeeklyReportResponse(BaseModel):
     quiz_summary_json: dict[str, Any] | None
     mini_writing_summary_json: dict[str, Any] | None
     weekly_writing_evaluation_id: int | None
+    # CEFR band from weekly writing evaluation (Part B)
+    weekly_cefr_band: str | None = None
+    weekly_cefr_justification: str | None = None
     mastery_snapshot_json: dict[str, Any] | None
     narrative_report: str | None
     created_at: str
@@ -58,6 +61,18 @@ class StartWeeklyReviewResponse(BaseModel):
 
 def _report_to_response(report) -> WeeklyReportResponse:
     """Convert a WeeklyReport to response format."""
+    # Get CEFR data from the weekly writing evaluation if it exists
+    weekly_cefr_band = None
+    weekly_cefr_justification = None
+    if report.weekly_writing_evaluation_id:
+        from app.db.models.writing import WritingEvaluation
+        from app.db.engine import Session
+        with Session() as session:
+            eval = session.get(WritingEvaluation, report.weekly_writing_evaluation_id)
+            if eval:
+                weekly_cefr_band = eval.cefr_band
+                weekly_cefr_justification = eval.cefr_justification
+
     return WeeklyReportResponse(
         id=report.id,
         week_start=str(report.week_start),
@@ -66,6 +81,8 @@ def _report_to_response(report) -> WeeklyReportResponse:
         quiz_summary_json=report.quiz_summary_json,
         mini_writing_summary_json=report.mini_writing_summary_json,
         weekly_writing_evaluation_id=report.weekly_writing_evaluation_id,
+        weekly_cefr_band=weekly_cefr_band,
+        weekly_cefr_justification=weekly_cefr_justification,
         mastery_snapshot_json=report.mastery_snapshot_json,
         narrative_report=report.narrative_report,
         created_at=report.created_at.isoformat(),

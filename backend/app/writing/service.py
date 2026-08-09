@@ -437,20 +437,23 @@ class WritingService:
             session.flush()
             raise
 
-        # Create evaluation with 5 dimension scores
+        # Create evaluation with 5 dimension scores + CEFR band
         evaluation = WritingEvaluation(
             submission_id=submission.id,
             grammar_score=result.grammar.score,
             naturalness_score=result.naturalness.score,
             vocabulary_score=result.vocabulary.score,
             coherence_score=result.coherence.score,
-            overall_score=result.overall.score,
+            overall_score=None,  # Replaced by CEFR band
+            cefr_band=result.cefr_band,
+            cefr_justification=result.band_justification,
             feedback_json={
                 "grammar": result.grammar.feedback,
                 "naturalness": result.naturalness.feedback,
                 "vocabulary": result.vocabulary.feedback,
                 "coherence": result.coherence.feedback,
-                "overall": result.overall.feedback,
+                "cefr_band": result.cefr_band,
+                "band_justification": result.band_justification,
             },
             suggested_items_json=[
                 cls._parsed_item_to_dict(item)

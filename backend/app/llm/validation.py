@@ -16,6 +16,7 @@ from app.llm.schemas import (
     QuizQuestionOutput,
     WeeklyNarrativeOutput,
     WeeklyWritingEvalOutput,
+    DimensionScore,
 )
 
 logger = logging.getLogger(__name__)
@@ -164,9 +165,10 @@ def validate_weekly_writing_eval(
 ) -> tuple[WeeklyWritingEvalOutput, list[str]]:
     """Validate and clamp weekly writing evaluation output.
 
-    Corresponds to ARCHITECTURE Section 9.5 (Validation):
-    - All five score values in [0, 100], re-clamped defensively
-    - overall.feedback must be non-empty
+    Corresponds to ARCHITECTURE Section 9.5 (Validation) + Part B CEFR banding:
+    - All four score values in [0, 100], re-clamped defensively
+    - cefr_band must be valid (enforced by schema Literal)
+    - band_justification must be non-empty
 
     Args:
         output: The weekly writing evaluation output
@@ -180,17 +182,15 @@ def validate_weekly_writing_eval(
         output.naturalness,
         output.vocabulary,
         output.coherence,
-        output.overall,
     ]
 
     for dim in dimensions:
         # Defensive re-clamp to [0, 100]
         dim.score = max(0.0, min(100.0, dim.score))
 
-    # Check overall.feedback is non-empty
-    if not output.overall.feedback or not output.overall.feedback.strip():
-        warnings.append("overall.feedback must be non-empty")
-        # Note: This indicates a degenerate response worth retrying
+    # Check band_justification is non-empty
+    if not output.band_justification or not output.band_justification.strip():
+        warnings.append("band_justification must be non-empty")
 
     return output, warnings
 

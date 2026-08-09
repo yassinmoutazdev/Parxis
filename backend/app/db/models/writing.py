@@ -64,6 +64,10 @@ class WritingEvaluation(SQLModel, table=True):
     feedback_json: dict | None = Field(default=None, sa_column=Column(JSON))
     suggested_items_json: list | None = Field(default=None, sa_column=Column(JSON))
 
+    # CEFR band (Part B - weekly evaluations only, None for mini)
+    cefr_band: str | None = Field(default=None, index=True)
+    cefr_justification: str | None = Field(default=None)
+
     # v1.1 evaluation metadata (ADR-13)
     evaluator_provider: str | None = Field(default=None)
     evaluator_model: str | None = Field(default=None)

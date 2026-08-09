@@ -157,6 +157,9 @@ export interface WritingEvaluation {
   evaluator_model: string | null
   prompt_version: string | null
   rubric_version: string | null
+  // CEFR band (Part B - weekly evaluations only)
+  cefr_band: CefrBand
+  cefr_justification: string | null
   created_at: string
 }
 
@@ -169,14 +172,27 @@ export interface WeeklyReport {
   quiz_summary_json: Record<string, unknown> | null
   mini_writing_summary_json: Record<string, unknown> | null
   weekly_writing_evaluation_id: number | null
+  // CEFR band from weekly writing evaluation (Part B)
+  weekly_cefr_band: CefrBand
+  weekly_cefr_justification: string | null
   mastery_snapshot_json: Record<string, unknown> | null
   narrative_report: string | null
   created_at: string
 }
 
 // Dashboard Types
+export type CefrBand = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | null
+export type CefrTrend = 'up' | 'down' | 'steady'
+
+export interface ProficiencyBand {
+  band: CefrBand
+  trend: CefrTrend
+  last_eval_week_start: string | null
+}
+
 export interface DashboardOverview {
-  proficiency: number | null
+  proficiency: ProficiencyBand | null
+  mastery_index: number | null
   category_mastery_avg: number | null
   writing_performance_avg: number | null
   pending_approvals_count: number

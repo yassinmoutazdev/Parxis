@@ -15,10 +15,14 @@ class TestDashboardOverview:
     """Tests for DashboardService.overview()"""
 
     def test_overview_with_no_data(self):
-        """Overview returns None for proficiency when no data exists."""
+        """Overview returns proficiency object with null band when no data exists."""
         result = DashboardService.overview(app_state=None)
 
-        assert result["proficiency"] is None
+        # Proficiency is now an object (Part B: CEFR band as headline metric)
+        assert result["proficiency"] is not None
+        assert result["proficiency"]["band"] is None
+        assert result["proficiency"]["trend"] == "steady"
+        assert result["proficiency"]["last_eval_week_start"] is None
         assert result["pending_approvals_count"] == 0
         assert result["week_snapshot"]["items_studied"] == 0
 

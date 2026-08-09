@@ -6,8 +6,8 @@ Corresponds to ARCHITECTURE Sections 9.4 (Mini) and 9.5 (Weekly).
 # Prompt version constants (ADR-13)
 MINI_WRITING_EVAL_PROMPT_VERSION = "1.0.0"
 MINI_WRITING_EVAL_RUBRIC_VERSION = "1.0.0"
-WEEKLY_WRITING_EVAL_PROMPT_VERSION = "1.0.0"
-WEEKLY_WRITING_EVAL_RUBRIC_VERSION = "1.0.0"
+WEEKLY_WRITING_EVAL_PROMPT_VERSION = "2.0.0"
+WEEKLY_WRITING_EVAL_RUBRIC_VERSION = "2.0.0"
 
 # Rubric text blocks (separately versioned per ADR-13)
 MINI_WRITING_EVAL_RUBRIC = """Evaluate the writing based on:
@@ -20,13 +20,35 @@ Provide corrections for any errors found.
 Limit naturalness_notes to 2 items maximum."""
 
 
-WEEKLY_WRITING_EVAL_RUBRIC = """Evaluate the writing across five dimensions:
+WEEKLY_WRITING_EVAL_RUBRIC = """Evaluate this submission against the CEFR writing descriptors below.
+Select exactly ONE band that best matches the submission, and justify
+your choice by pointing to specific features of the text (not just
+restating the descriptor).
 
-1. Grammar (0-100): Grammatical correctness and sentence structure
-2. Naturalness (0-100): How natural the writing sounds
-3. Vocabulary (0-100): Word choice and expression variety
-4. Coherence (0-100): Logical flow and organization
-5. Overall (0-100): General quality assessment
+A2: Can write short, simple connected text on familiar topics. Frequent
+    basic errors; limited range of vocabulary and structures.
+B1: Can write straightforward connected text on familiar topics.
+    Generally understandable despite noticeable errors; some ability to
+    link ideas, but limited variety of structures.
+B2: Can write clear, detailed text on a range of subjects. Good control
+    of grammar; errors don't obscure meaning; reasonable range of
+    vocabulary and some idiomatic usage; ideas are logically organized.
+C1: Can write clear, well-structured text with an effective logical
+    structure. Wide range of vocabulary and grammar used flexibly and
+    accurately; only occasional, minor errors; register is consistently
+    appropriate.
+C2: Can write clear, smoothly flowing, complex text in an appropriate,
+    effective style. Precise, idiomatic control of language; errors are
+    vanishingly rare; nuanced and natural throughout.
+
+Also score these supporting dimensions (0-100), consistent with the band
+you selected -- they should read as evidence for the band, not a
+contradiction of it:
+
+1. Grammar (0-100)
+2. Naturalness (0-100)
+3. Vocabulary (0-100)
+4. Coherence (0-100)
 
 Provide specific feedback for each dimension."""
 
@@ -42,13 +64,13 @@ Submission:
 {RUBRIC}
 
 Generate your evaluation in JSON format:
-{{
+{
     "corrections": [
-        {{"wrong": "the error", "correct": "the correction", "explanation": "why"}}
+        {"wrong": "the error", "correct": "the correction", "explanation": "why"}
     ],
     "naturalness_notes": ["note 1", "note 2"],
     "suggested_items": []
-}}
+}
 
 Important:
 - Limit naturalness_notes to exactly 2 items
@@ -71,18 +93,21 @@ Known relevant items from your knowledge base:
 {RUBRIC}
 
 Generate your evaluation in JSON format:
-{{
-    "grammar": {{"score": 85, "feedback": "Good grammar overall..."}},
-    "naturalness": {{"score": 80, "feedback": "Sounds natural..."}},
-    "vocabulary": {{"score": 75, "feedback": "Could use more varied vocabulary..."}},
-    "coherence": {{"score": 90, "feedback": "Well organized..."}},
-    "overall": {{"score": 82, "feedback": "Good effort..."}},
+{
+    "cefr_band": "B2",
+    "band_justification": "The text demonstrates clear, detailed writing on a range of subjects with good grammar control...",
+    "grammar": {"score": 85, "feedback": "Good grammar overall..."},
+    "naturalness": {"score": 80, "feedback": "Sounds natural..."},
+    "vocabulary": {"score": 75, "feedback": "Could use more varied vocabulary..."},
+    "coherence": {"score": 90, "feedback": "Well organized..."},
     "suggested_items": []
-}}
+}
 
 Important:
+- cefr_band must be exactly one of: A1, A2, B1, B2, C1, C2
+- band_justification must be non-empty and reference specific text features
 - All scores must be between 0 and 100
-- overall.feedback must be non-empty
+- Scores must be consistent with the selected CEFR band
 Return valid JSON only."""
 
 

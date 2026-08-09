@@ -1,9 +1,39 @@
-// Proficiency Card - displays overall estimated proficiency
+// Proficiency Card - displays CEFR band as headline metric
 
 import { Card, CardContent, CardHeader } from '../../../shared/components/Card'
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner'
 import { masteryStop } from '../../../shared/utils/masteryColor'
-import type { DashboardOverview } from '../../../api/types'
+import type { DashboardOverview, CefrBand, CefrTrend } from '../../../api/types'
+
+// CEFR band colors (consistent gradient approach, not stoplight)
+function getCefrColor(band: CefrBand): string {
+  if (!band) return '#6B6963' // ink-faint
+  const colors: Record<Exclude<CefrBand, null>, string> = {
+    'A1': '#8B5CF6',  // purple
+    'A2': '#3B82F6',  // blue
+    'B1': '#10B981',  // emerald
+    'B2': '#F59E0B',  // amber
+    'C1': '#EF4444',  // red
+    'C2': '#EC4899',  // pink
+  }
+  return colors[band]
+}
+
+function getTrendIcon(trend: CefrTrend): string {
+  switch (trend) {
+    case 'up': return '↑'
+    case 'down': return '↓'
+    default: return '→'
+  }
+}
+
+function getTrendColor(trend: CefrTrend): string {
+  switch (trend) {
+    case 'up': return 'text-accent'
+    case 'down': return 'text-red-500'
+    default: return 'text-ink-muted'
+  }
+}
 
 interface ProficiencyCardProps {
   data?: DashboardOverview
@@ -11,26 +41,12 @@ interface ProficiencyCardProps {
   error?: Error | null
 }
 
-// PRD Section 20.3: "single mastery/score gradient (not stoplight red/yellow/green)"
-function getMasteryColor(score: number | null): string {
-  if (score === null) return '#6B6963' // ink-faint
-  return masteryStop(score).hex
-}
-
-function formatProficiency(score: number | null): string {
-  if (score === null) return '--'
-
-  // Convert to 0-100 scale for display
-  const percentage = Math.round(score * 100)
-  return `${percentage}%`
-}
-
 export function ProficiencyCard({ data, isLoading, error }: ProficiencyCardProps) {
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <h2 className="font-serif text-lg text-ink">Estimated Proficiency</h2>
+          <h2 className="font-serif text-lg text-ink">CEFR Proficiency</h2>
         </CardHeader>
         <CardContent>
           <LoadingSpinner />
@@ -43,7 +59,7 @@ export function ProficiencyCard({ data, isLoading, error }: ProficiencyCardProps
     return (
       <Card>
         <CardHeader>
-          <h2 className="font-serif text-lg text-ink">Estimated Proficiency</h2>
+          <h2 className="font-serif text-lg text-ink">CEFR Proficiency</h2>
         </CardHeader>
         <CardContent>
           <p className="text-red-600">Failed to load proficiency data</p>
@@ -52,22 +68,55 @@ export function ProficiencyCard({ data, isLoading, error }: ProficiencyCardProps
     )
   }
 
-  const proficiency = data?.proficiency ?? null
+  const proficiency = data?.proficiency
+  const masteryIndex = data?.mastery_index
 
   return (
     <Card>
       <CardHeader>
-        <h2 className="font-serif text-lg text-ink">Estimated Proficiency</h2>
+        <h2 className="font-serif text-lg text-ink">CEFR Proficiency</h2>
         <p className="text-sm text-ink-muted">
-          40% item mastery / 60% writing performance
+          Based on weekly writing evaluations with hysteresis
         </p>
       </CardHeader>
       <CardContent>
-        <div className="flex items-baseline gap-2">
-          <span className="text-5xl font-medium" style={{ color: getMasteryColor(proficiency) }}>
-            {formatProficiency(proficiency)}
-          </span>
+        <div className="flex items-center gap-4">
+          {proficiency?.band ? (
+            <div className="flex items-center gap-2">
+              <span
+                className="text-5xl font-medium"
+                style={{ color: getCefrColor(proficiency.band) }}
+              >
+                {proficiency.band}
+              </span>
+              <span
+                className={`text-xl font-medium ${getTrendColor(proficiency.trend)}`}
+              >
+                {getTrendIcon(proficiency.trend)}
+              </span>
+            </div>
+          ) : (
+            <span className="text-5xl font-medium text-ink-muted">—</span>
+          )}
+
+          {proficiency?.last_eval_week_start && (
+            <span className="text-sm text-ink-muted ml-auto">
+              Last eval: {proficiency.last_eval_week_start}
+            </span>
+          )}
         </div>
+
+        {/* Mastery index (legacy blended metric) */}
+        {masteryIndex !== null && masteryIndex !== undefined && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-sm text-ink-muted mb-1">Mastery Index (legacy)</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-medium" style={{ color: masteryStop(masteryIndex).hex }}>
+                {Math.round(masteryIndex * 100)}%
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Week snapshot */}
         {data?.week_snapshot && (

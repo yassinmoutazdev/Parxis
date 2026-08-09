@@ -12,6 +12,7 @@ from app.db.models.approval import ApprovalQueue, ApprovalStatus
 from app.db.models.learning_item import ItemType, LearningItem
 from app.db.models.quiz import QuizQuestion, QuizSession
 from app.db.models.writing import WritingEvaluation, WritingSubmission
+from app.proficiency.service import ProficiencyService
 from app.scheduler.mastery import decayed_score
 
 # Default proficiency blend weights (per PRD Section 17.4)
@@ -30,16 +31,16 @@ class DashboardService:
 
     @classmethod
     def overview(cls, app_state: Any | None = None) -> dict[str, Any]:
-        """Get dashboard overview with proficiency, activity snapshot, and health.
+        """Get dashboard overview with CEFR proficiency band, activity snapshot, and health.
 
-        Implements the proficiency blend formula from PRD Section 17.4:
-        - Default 40% item mastery / 60% recent writing performance
+        Part B: CEFR band is now the headline proficiency metric.
+        The old blended float is kept as 'mastery_index' for the category-mastery-driven view.
 
         Args:
             app_state: Optional FastAPI app state to check VaultWatcher health
 
         Returns:
-            Dictionary with proficiency, pending approvals, and health status
+            Dictionary with proficiency (CEFR band), mastery_index, pending approvals, and health
         """
         # Get pending approvals count
         with Session() as session:
@@ -49,17 +50,20 @@ class DashboardService:
                 .count()
             )
 
-        # Get category mastery average
+        # Get category mastery average (for mastery_index)
         category_mastery_avg = cls._calculate_category_mastery_avg()
 
-        # Get recent writing performance average
+        # Get recent writing performance average (for mastery_index)
         writing_perf_avg = cls._calculate_writing_performance_avg()
 
-        # Apply proficiency blend formula
-        proficiency = cls._blend_proficiency(
+        # Apply old proficiency blend formula (kept as mastery_index)
+        mastery_index = cls._blend_proficiency(
             category_mastery_avg, writing_perf_avg,
             DEFAULT_ITEM_MASTERY_WEIGHT, DEFAULT_WRITING_PERFORMANCE_WEIGHT
         )
+
+        # Get CEFR band from ProficiencyService (new headline metric)
+        proficiency_band = ProficiencyService.get_current_band()
 
         # Get this week's activity snapshot
         week_start = cls._get_week_start(datetime.utcnow())
@@ -70,7 +74,8 @@ class DashboardService:
         health = cls._get_health_status(app_state)
 
         return {
-            "proficiency": proficiency,
+            "proficiency": proficiency_band,  # New: CEFR band object {band, trend, last_eval_week_start}
+            "mastery_index": mastery_index,   # Old blended float (0-1), renamed
             "category_mastery_avg": category_mastery_avg,
             "writing_performance_avg": writing_perf_avg,
             "pending_approvals_count": pending_count,

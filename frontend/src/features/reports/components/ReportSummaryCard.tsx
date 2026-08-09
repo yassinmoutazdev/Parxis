@@ -1,4 +1,18 @@
-import type { WeeklyReport } from '../../../api/types'
+import type { WeeklyReport, CefrBand } from '../../../api/types'
+
+// CEFR band colors (consistent with ProficiencyCard)
+function getCefrColor(band: CefrBand): string {
+  if (!band) return '#6B6963'
+  const colors: Record<Exclude<CefrBand, null>, string> = {
+    'A1': '#8B5CF6',
+    'A2': '#3B82F6',
+    'B1': '#10B981',
+    'B2': '#F59E0B',
+    'C1': '#EF4444',
+    'C2': '#EC4899',
+  }
+  return colors[band]
+}
 
 interface ReportSummaryCardProps {
   report: WeeklyReport
@@ -35,6 +49,26 @@ export default function ReportSummaryCard({ report }: ReportSummaryCardProps) {
           {new Date(report.created_at).toLocaleDateString()}
         </span>
       </div>
+
+      {/* CEFR Band (Part B) */}
+      {report.weekly_cefr_band && (
+        <div className="mb-4 p-3 bg-accent-tint border border-accent/30 rounded-lg">
+          <div className="flex items-center gap-3">
+            <span
+              className="text-2xl font-bold"
+              style={{ color: getCefrColor(report.weekly_cefr_band) }}
+            >
+              {report.weekly_cefr_band}
+            </span>
+            <div>
+              <p className="font-medium text-ink">CEFR Proficiency</p>
+              {report.weekly_cefr_justification && (
+                <p className="text-sm text-ink-muted">{report.weekly_cefr_justification}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quiz Summary */}
       {quizSummary && (
