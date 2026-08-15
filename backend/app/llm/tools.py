@@ -56,8 +56,35 @@ START_WRITING_TOOL: dict[str, Any] = {
     },
 }
 
+SAVE_NOTE_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "save_note",
+        "description": (
+            "Save a note for later learning extraction. Call this when the "
+            "learner shares something worth remembering -- a useful phrase, "
+            "a grammar explanation, a personal example, or any content they "
+            "want to add to their learning set. The note will be parsed for "
+            "learnable items (collocations, idioms, phrasal verbs, grammar notes, "
+            "personal examples, corrections) and added directly -- if anything "
+            "extracted is ambiguous, you'll be asked to clarify with the learner "
+            "in your next reply instead."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "The text content to save and extract learnable items from.",
+                },
+            },
+            "required": ["content"],
+        },
+    },
+}
+
 # All tools exposed to the coach chat task.
-COACH_TOOLS: list[dict[str, Any]] = [START_QUIZ_TOOL, START_WRITING_TOOL]
+COACH_TOOLS: list[dict[str, Any]] = [START_QUIZ_TOOL, START_WRITING_TOOL, SAVE_NOTE_TOOL]
 
 # Names -> for fast lookup / validation
 COACH_TOOL_NAMES: frozenset[str] = frozenset(

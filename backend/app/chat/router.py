@@ -83,6 +83,17 @@ class StartWritingDirectRequest(BaseModel):
     writing_mode: str = Field(pattern="^(mini|weekly)$")
 
 
+class SaveNoteRequest(BaseModel):
+    """Request body for the manual '+' note trigger (Work Item E).
+
+    Direct entry point into the same save_note_action code path
+    the LLM tool-call already uses -- invoked directly instead of via
+    a model decision, so this does NOT go through the LLM at all.
+    """
+
+    content: str = Field(min_length=1)
+
+
 @router.post("/threads", response_model=ChatThreadResponse, status_code=201)
 async def create_thread() -> ChatThreadResponse:
     """Create a new chat thread.
@@ -350,6 +361,52 @@ async def start_writing_direct(
     except Exception as e:
         logger.error(f"Failed to start writing directly for thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to start writing")
+
+
+@router.post(
+    "/threads/{thread_id}/notes",
+    response_model=ChatMessageResponse,
+)
+async def save_note_direct(
+    thread_id: int, request: SaveNoteRequest
+) -> ChatMessageResponse:
+    """Save a note directly from the composer's '+' menu (Work Item E).
+
+    A second entry point into the exact same save_note_action code path
+    the LLM tool-call already uses -- invoked directly instead of via a
+    model decision, so this does NOT go through the LLM at all.
+
+    Args:
+        thread_id: The thread ID
+        request: Note content
+
+    Returns:
+        ChatMessageResponse with the confirmation message
+
+    Raises:
+        HTTPException: 404 if thread not found
+    """
+    try:
+        # Verify thread exists
+        ChatService.get_thread(thread_id)
+
+        message = await ChatService.save_note_action(
+            thread_id, request.content
+        )
+        return ChatMessageResponse(
+            id=message.id, # type: ignore
+            thread_id=message.thread_id,
+            role=message.role.value,
+            content=message.content,
+            action_type=message.action_type.value,
+            action_ref_id=message.action_ref_id,
+            created_at=message.created_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to save note directly for thread {thread_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save note")
 
 
 @router.post(

@@ -14,10 +14,23 @@ import httpx
 from pydantic import BaseModel
 
 from app.config import settings
+from app.config_service import ConfigService
 
 from . import inference_settings
 
 logger = logging.getLogger(__name__)
+
+
+class OllamaAuthError(Exception):
+    """Raised when Ollama returns a 401/auth failure.
+
+    This is caught by the API layer and translated to a consistent
+    `ollama_auth_failed` error shape so the frontend can redirect
+    to ConnectScreen from any endpoint.
+    """
+
+    def __init__(self, message: str = "Ollama authentication failed"):
+        super().__init__(message)
 
 
 @dataclass
@@ -79,9 +92,38 @@ class OllamaAdapter:
         """
         self.host = host or settings.ollama_host
         self.model = model or settings.ollama_model
-        self.api_key = settings.ollama_api_key
+        # API key is now loaded from ConfigService at call time, not init
         self.timeout = settings.ollama_timeout_seconds
         self.max_retries = settings.ollama_max_retries
+
+    def _get_api_key(self) -> str | None:
+        """Get the current API key from ConfigService (runtime value)."""
+        try:
+            key = ConfigService.get("ollama_api_key")
+            return key if key and key.strip() else None
+        except Exception:
+            return None
+
+    async def test_auth(self, api_key: str) -> None:
+        """Test an API key against Ollama by making a cheap models list call.
+
+        Args:
+            api_key: The API key to test
+
+        Raises:
+            OllamaAuthError: If the key is rejected (401)
+            httpx.ConnectError/TimeoutException: Network issues
+            Exception: Other errors
+        """
+        headers = {"Authorization": f"Bearer {api_key}"}
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.host}/api/tags",
+                headers=headers,
+            )
+            if response.status_code == 401:
+                raise OllamaAuthError("API key rejected by Ollama")
+            response.raise_for_status()
 
     async def generate(
         self,
@@ -151,6 +193,7 @@ class OllamaAdapter:
         Raises:
             httpx.ConnectError: If Ollama is unreachable after retries
             httpx.TimeoutException: If the request times out
+            OllamaAuthError: If API key is rejected (401)
         """
         messages = [{"role": "system", "content": system_prompt}, *history]
         inf_settings = inference_settings.get_settings_for_task(task)
@@ -164,8 +207,9 @@ class OllamaAdapter:
         }
 
         headers: dict[str, str] = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+        api_key = self._get_api_key()
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             last_error: Exception | None = None
@@ -234,6 +278,10 @@ class OllamaAdapter:
                     raise
 
                 except httpx.HTTPStatusError as e:
+                    # Intercept 401 auth errors and raise OllamaAuthError
+                    if e.response.status_code == 401:
+                        raise OllamaAuthError("Ollama authentication failed - API key may be invalid or expired")
+
                     # Fallback path: some Ollama versions/models reject the
                     # `tools` param outright (400) instead of just ignoring
                     # unsupported tool calls. Retry once as a plain chat
@@ -355,8 +403,9 @@ class OllamaAdapter:
 
             # Build request headers (include API key if set)
             headers: dict[str, str] = {}
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
+            api_key = self._get_api_key()
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
 
             for attempt in range(self.max_retries + 1):
                 try:
@@ -407,6 +456,9 @@ class OllamaAdapter:
                     raise
 
                 except httpx.HTTPStatusError as e:
+                    # Intercept 401 auth errors and raise OllamaAuthError
+                    if e.response.status_code == 401:
+                        raise OllamaAuthError("Ollama authentication failed - API key may be invalid or expired")
                     logger.error(f"HTTP error for task {task}: {e}")
                     raise
 

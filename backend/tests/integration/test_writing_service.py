@@ -17,7 +17,6 @@ from sqlmodel import SQLModel
 # Import all models to ensure tables are registered
 from app.db.models.source import Source, Lesson
 from app.db.models.note import Note
-from app.db.models.approval import ApprovalQueue, ApprovalSourceType, ApprovalStatus
 from app.db.models.learning_item import LearningItem, ItemType, Tag, LearningItemTag
 from app.db.models.performance_error import PerformanceError, PerformanceErrorSource
 from app.db.models.writing import (
@@ -287,52 +286,64 @@ class TestPerformanceError:
         assert error.source_id == submission.id
 
 
-class TestApprovalQueue:
-    """Tests for ApprovalQueue - suggested items path."""
+class TestSuggestedItemScreening:
+    """Tests for automatic suggested-item screening (Part H - no approval queue)."""
 
-    def test_create_approval_queue_item_from_writing_feedback(self, test_session):
-        """Test creating ApprovalQueue item from writing suggested items."""
-        # Create prompt and submission
-        prompt = WritingPrompt(
-            prompt_type=WritingPromptType.MINI,
-            topic="Test topic",
-        )
-        test_session.add(prompt)
-        test_session.commit()
-        test_session.refresh(prompt)
+    def test_high_confidence_item_auto_inserted(self, test_session):
+        """A complete, high-confidence suggested item is inserted directly, no queue."""
+        from app.llm.schemas import ParsedItem
+        from app.writing.service import WritingService
 
-        submission = WritingSubmission(
-            prompt_id=prompt.id,
-            submission_type=WritingSubmissionType.MINI,
-            submitted_text="Test text",
-            word_count=2,
-        )
-        test_session.add(submission)
-        test_session.commit()
-        test_session.refresh(submission)
-
-        # Create ApprovalQueue item (approval-gated path)
-        queue_item = ApprovalQueue(
-            source_type=ApprovalSourceType.WRITING_FEEDBACK,
-            source_id=submission.id,
+        item = ParsedItem(
             item_type="COLLOCATION",
-            extracted_text="go to the store",
-            explanation="visit a store to buy things",
+            text="go to the store",
+            definition="visit a store to buy things",
             example_sentence="I went to the store yesterday",
-            source_context="went to the store",
-            status=ApprovalStatus.PENDING,
+            source_excerpt="went to the store",
+            confidence="high",
         )
-        test_session.add(queue_item)
-        test_session.commit()
-        test_session.refresh(queue_item)
 
-        assert queue_item.id is not None
-        assert queue_item.source_type == ApprovalSourceType.WRITING_FEEDBACK
-        assert queue_item.status == ApprovalStatus.PENDING
+        WritingService._process_suggested_items(
+            test_session, [item], submission_text="I went to the store yesterday.", submission_id=1
+        )
+        test_session.commit()
+
+        inserted = (
+            test_session.query(LearningItem).filter(LearningItem.text == "go to the store").first()
+        )
+        assert inserted is not None
+        assert inserted.definition == "visit a store to buy things"
+
+    def test_incomplete_item_not_inserted_without_successful_retry(self, test_session, monkeypatch):
+        """An incomplete item that still fails after retry is dropped, not queued."""
+        from app.llm.schemas import ParsedItem
+        from app.ingestion.service import IngestionService
+        from app.writing.service import WritingService
+
+        item = ParsedItem(
+            item_type="COLLOCATION",
+            text="make a decision",
+            definition=None,
+            example_sentence=None,
+            source_excerpt="make a decision",
+            confidence="high",
+        )
+
+        monkeypatch.setattr(IngestionService, "_retry_flagged_items", classmethod(lambda cls, items, content: []))
+
+        WritingService._process_suggested_items(
+            test_session, [item], submission_text="...", submission_id=1
+        )
+        test_session.commit()
+
+        inserted = (
+            test_session.query(LearningItem).filter(LearningItem.text == "make a decision").first()
+        )
+        assert inserted is None
 
 
 class TestWritingService:
-    """Tests for WritingService helper methods."""
+    """Tests for WritingService helper methods.""" 
 
     def test_generate_mini_prompt(self, test_session):
         """Test generating a mini prompt."""

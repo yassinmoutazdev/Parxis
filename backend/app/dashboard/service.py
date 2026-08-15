@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from app.db.engine import Session
-from app.db.models.approval import ApprovalQueue, ApprovalStatus
 from app.db.models.learning_item import ItemType, LearningItem
 from app.db.models.quiz import QuizQuestion, QuizSession
 from app.db.models.writing import WritingEvaluation, WritingSubmission
@@ -40,16 +39,8 @@ class DashboardService:
             app_state: Optional FastAPI app state to check VaultWatcher health
 
         Returns:
-            Dictionary with proficiency (CEFR band), mastery_index, pending approvals, and health
+            Dictionary with proficiency (CEFR band), mastery_index, and health
         """
-        # Get pending approvals count
-        with Session() as session:
-            pending_count = (
-                session.query(ApprovalQueue)
-                .filter(ApprovalQueue.status == ApprovalStatus.PENDING)
-                .count()
-            )
-
         # Get category mastery average (for mastery_index)
         category_mastery_avg = cls._calculate_category_mastery_avg()
 
@@ -78,7 +69,6 @@ class DashboardService:
             "mastery_index": mastery_index,   # Old blended float (0-1), renamed
             "category_mastery_avg": category_mastery_avg,
             "writing_performance_avg": writing_perf_avg,
-            "pending_approvals_count": pending_count,
             "week_snapshot": week_snapshot,
             "health": health,
         }

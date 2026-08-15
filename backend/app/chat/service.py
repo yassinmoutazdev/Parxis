@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from app.db.engine import Session
 from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
 from app.db.models.learning_item import LearningItem
+from app.db.models.note import Note, NoteSource, NoteStatus
+from app.ingestion.service import IngestionService
 from app.llm import ollama_adapter
 from app.llm.interface import TaskType
 from app.llm.prompts import coach as coach_prompts
@@ -323,6 +325,13 @@ class ChatService:
                     thread_id, writing_mode="mini", topic=topic
                 )
 
+            elif result.tool_name == "save_note":
+                args = result.tool_arguments or {}
+                content = args.get("content") or ""
+                assistant_message = await cls.save_note_action(
+                    thread_id, content
+                )
+
             else:
                 # Ordinary conversational turn -- plain text, no action.
                 assistant_message = cls.append_message(
@@ -469,6 +478,61 @@ class ChatService:
         )
 
         return message
+
+    @classmethod
+    async def save_note_action(cls, thread_id: int, content: str) -> ChatMessage:
+        """Save a note from chat content and process it through the ingestion pipeline.
+
+        Creates a Note row with source=CHAT (its text lives inline in
+        Note.content - there's no vault file), then processes it exactly
+        like a vault note. No approval queue: items are auto-inserted,
+        silently dropped as duplicates, or - if still low-confidence/
+        incomplete after one automatic retry - handed back here so the
+        coach can ask the user directly in this same reply.
+
+        Args:
+            thread_id: The thread ID
+            content: The text content to save
+
+        Returns:
+            ChatMessage summarizing what happened (and asking for
+            clarification, if anything needs it)
+        """
+        import hashlib
+
+        with Session() as session:
+            content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
+            note = Note(
+                source=NoteSource.CHAT,
+                content=content,
+                content_hash=content_hash,
+                status=NoteStatus.NEW,
+            )
+            session.add(note)
+            session.commit()
+            session.refresh(note)
+            note_id = note.id
+
+        success, unresolved = IngestionService.process_note(note_id)
+
+        if not success:
+            reply = "I saved your note, but had trouble processing it - you can try again later."
+        elif unresolved:
+            # Bundle everything unresolved into one natural message, not one
+            # interruption per item.
+            questions = "; ".join(
+                item.low_confidence_reason or f"could you clarify \"{item.text}\"?"
+                for item in unresolved
+            )
+            reply = f"Got it, saved what I could. One thing I wasn't sure about: {questions}"
+        else:
+            reply = "Got it - I've added what's worth keeping from that to your learning set."
+
+        return cls.append_message(
+            thread_id=thread_id,
+            role=ChatRole.ASSISTANT,
+            content=reply,
+        )
 
     @classmethod
     def _build_comprehensive_quiz_context(cls, thread_id: int, questions: list) -> dict:

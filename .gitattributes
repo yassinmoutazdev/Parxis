@@ -1,0 +1,11 @@
+* text=auto
+
+# Windows launcher scripts must stay byte-exact CRLF - cmd.exe's parser has
+# real problems with LF-only .bat files, which is what broke this script
+# before. -text (not eol=crlf) is deliberate: eol=crlf still lets git
+# normalize the stored blob to LF and only converts on checkout, which is
+# invisible when files are handed over as `git apply` patches rather than
+# a real clone. -text disables line-ending handling entirely so the bytes
+# on disk, in the index, and in any diff/patch are always identical.
+*.bat -text
+*.ps1 -text

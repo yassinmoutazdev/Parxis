@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ConfigSection } from './components/ConfigSection'
 import { VaultPathSection } from './components/VaultPathSection'
+import { OllamaKeySection } from './components/OllamaKeySection'
 import { Card, CardContent } from '../../shared/components/Card'
 
 export default function SettingsPage() {
@@ -15,6 +16,7 @@ export default function SettingsPage() {
 
       <ConfigSection />
       <VaultPathSection />
+      <OllamaKeySection />
 
       <Card>
         <CardContent className="flex items-center justify-between">

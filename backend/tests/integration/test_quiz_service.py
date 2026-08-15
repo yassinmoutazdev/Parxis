@@ -19,7 +19,6 @@ from sqlmodel import SQLModel
 # Import all models to ensure tables are registered
 from app.db.models.source import Source, Lesson
 from app.db.models.note import Note
-from app.db.models.approval import ApprovalQueue, ApprovalSourceType, ApprovalStatus
 from app.db.models.learning_item import LearningItem, ItemType, Tag, LearningItemTag
 from app.db.models.learning_correction import LearningCorrection
 from app.db.models.performance_error import PerformanceError, PerformanceErrorSource
@@ -98,7 +97,6 @@ def learning_items(test_session):
             ease_factor=2.5,
             interval_days=1,
             review_count=0,
-            source_approval_id=1,
         ),
         LearningItem(
             item_type=ItemType.IDIOM,
@@ -110,7 +108,6 @@ def learning_items(test_session):
             ease_factor=2.5,
             interval_days=1,
             review_count=0,
-            source_approval_id=2,
         ),
         LearningItem(
             item_type=ItemType.PHRASAL_VERB,
@@ -122,7 +119,6 @@ def learning_items(test_session):
             ease_factor=2.5,
             interval_days=1,
             review_count=0,
-            source_approval_id=3,
         ),
     ]
 

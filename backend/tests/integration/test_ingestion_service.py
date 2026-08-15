@@ -90,14 +90,16 @@ class TestIngestionServiceProcessNote:
         with patch("app.ingestion.service.ollama_adapter.ollama_adapter") as mock_adapter:
             mock_adapter.generate = fake_gen.generate
 
-            result = IngestionService.process_note(test_note)
+            success, unresolved = IngestionService.process_note(test_note)
 
-            assert result is True
+            assert success is True
+            # High-confidence, complete item -> auto-inserted, nothing unresolved.
+            assert unresolved == []
 
             # Verify note status changed
             with Session() as session:
                 note = session.query(Note).filter(Note.id == test_note).first()
-                assert note.status == NoteStatus.PENDING_APPROVAL
+                assert note.status == NoteStatus.PROCESSED
 
     @pytest.mark.asyncio
     async def test_process_note_parse_failure(self, test_note):
@@ -107,9 +109,10 @@ class TestIngestionServiceProcessNote:
         with patch("app.ingestion.service.ollama_adapter.ollama_adapter") as mock_adapter:
             mock_adapter.generate = fake_gen.generate
 
-            result = IngestionService.process_note(test_note)
+            success, unresolved = IngestionService.process_note(test_note)
 
-            assert result is False
+            assert success is False
+            assert unresolved == []
 
             # Verify note status changed to PARSE_FAILED
             with Session() as session:

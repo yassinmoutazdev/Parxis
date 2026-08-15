@@ -9,7 +9,6 @@ from sqlmodel import SQLModel
 
 # Import models FIRST - before defining fixtures
 from app.db.models import (
-    approval,
     chat,
     learning_correction,
     learning_item,

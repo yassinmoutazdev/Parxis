@@ -14,7 +14,7 @@ import type { ChatMessage } from '../../api/types'
 import { QuizRunner } from '../quizzes/components/QuizRunner'
 import { ChatWritingWidget } from './components/ChatWritingWidget'
 import { ComposerPlusMenu } from './components/ComposerPlusMenu'
-import { getWritingPrompt } from '../../api/client'
+import { getWritingPrompt, saveNote } from '../../api/client'
 import type { QuizSession, QuizQuestion, WritingPrompt } from '../../api/types'
 
 interface QuizWidgetData {
@@ -191,6 +191,18 @@ export default function ChatPage() {
     }
   }
 
+  const handleSaveNoteDirect = async (content: string) => {
+    setError(null)
+    try {
+      const thread = await ensureThread()
+      await saveNote(thread, content)
+      await queryClient.refetchQueries({ queryKey: ['chat', 'thread', thread] })
+      // No widget to load for notes - just a confirmation message appears in chat
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save note')
+    }
+  }
+
   const handleQuizComplete = async (answers: Record<number, string>) => {
     if (!numericThreadId || !quizWidget) return
 
@@ -282,6 +294,7 @@ export default function ChatPage() {
               placeholder="Type your message..."
               onStartQuiz={handleStartQuizDirect}
               onStartWriting={handleStartWritingDirect}
+              onSaveNote={handleSaveNoteDirect}
             />
             {error && <p className="text-red-500 mt-2">{error}</p>}
           </div>
@@ -368,6 +381,7 @@ function Composer({
   placeholder,
   onStartQuiz,
   onStartWriting,
+  onSaveNote,
 }: {
   value: string
   onChange: (v: string) => void
@@ -376,6 +390,7 @@ function Composer({
   placeholder?: string
   onStartQuiz?: (size: number) => void
   onStartWriting?: (mode: 'mini' | 'weekly') => void
+  onSaveNote?: (content: string) => void
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [plusMenuOpen, setPlusMenuOpen] = useState(false)
@@ -422,6 +437,7 @@ function Composer({
               onClose={() => setPlusMenuOpen(false)}
               onStartQuiz={onStartQuiz!}
               onStartWriting={onStartWriting!}
+              onSaveNote={onSaveNote!}
             />
           )}
         </>

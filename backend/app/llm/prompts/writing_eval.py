@@ -6,7 +6,7 @@ Corresponds to ARCHITECTURE Sections 9.4 (Mini) and 9.5 (Weekly).
 # Prompt version constants (ADR-13)
 MINI_WRITING_EVAL_PROMPT_VERSION = "1.0.0"
 MINI_WRITING_EVAL_RUBRIC_VERSION = "1.0.0"
-WEEKLY_WRITING_EVAL_PROMPT_VERSION = "2.0.0"
+WEEKLY_WRITING_EVAL_PROMPT_VERSION = "2.1.0"
 WEEKLY_WRITING_EVAL_RUBRIC_VERSION = "2.0.0"
 
 # Rubric text blocks (separately versioned per ADR-13)
@@ -100,8 +100,33 @@ Generate your evaluation in JSON format:
     "naturalness": {"score": 80, "feedback": "Sounds natural..."},
     "vocabulary": {"score": 75, "feedback": "Could use more varied vocabulary..."},
     "coherence": {"score": 90, "feedback": "Well organized..."},
-    "suggested_items": []
+    "suggested_items": [
+        {
+            "item_type": "COLLOCATION",
+            "text": "...",
+            "definition": "...",
+            "example_sentence": "...",
+            "source_excerpt": "verbatim span from the submission this was drawn from",
+            "confidence": "high",
+            "low_confidence_reason": null,
+            "possible_duplicate_reason": null
+        }
+    ]
 }
+
+suggested_items are learnable items worth adding to the learner's knowledge
+base based on this submission (e.g. a correction pattern the learner keeps
+needing, a collocation they used well and should reinforce). Same fields and
+rules as note extraction:
+- definition and example_sentence are REQUIRED for all non-CORRECTION types
+- confidence: "high" | "medium" | "low" - your self-reported confidence
+- low_confidence_reason: REQUIRED whenever confidence is "low". Name the
+  SPECIFIC ambiguity (not a generic "not sure") - this text is reused
+  directly as a retry instruction and, if still unresolved, as a question
+  back to the learner.
+- possible_duplicate_reason: only if you suspect overlap with
+  known_relevant_items above, even if wording differs
+- Leave suggested_items empty if nothing in the submission is worth adding
 
 Important:
 - cefr_band must be exactly one of: A1, A2, B1, B2, C1, C2

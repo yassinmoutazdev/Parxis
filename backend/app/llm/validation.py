@@ -33,9 +33,12 @@ def validate_parsed_note(
 ) -> tuple[ParsedNoteOutput, list[str]]:
     """Validate parsed note output.
 
-    Corresponds to ARCHITECTURE Section 9.1 (Validation rules):
+    Corresponds to ARCHITECTURE Section 9.1 (Validation rules) + Part E:
     - source_excerpt must be a substring of note_content
     - CORRECTION items must have both wrong_form and correct_form
+    - Non-CORRECTION items must have definition and example_sentence
+    - confidence must be present (validated by schema)
+    - possible_duplicate_reason is optional metadata
 
     Args:
         output: The parsed note output
@@ -53,8 +56,6 @@ def validate_parsed_note(
             warnings.append(
                 f"Item {i}: source_excerpt is not a verbatim quote from note"
             )
-            # Note: Item is NOT flagged as low_confidence here - that happens
-            # in the ApprovalQueue.reviewed_payload metadata per architecture
 
         # For CORRECTION type, ensure both fields are present
         if item.item_type == "CORRECTION":
@@ -66,6 +67,19 @@ def validate_parsed_note(
                 item.item_type = "PERSONAL_EXAMPLE"
                 item.wrong_form = None
                 item.correct_form = None
+        else:
+            # Non-CORRECTION types: definition and example_sentence are required
+            if not item.definition or not item.definition.strip():
+                warnings.append(
+                    f"Item {i} ({item.item_type}): missing required definition"
+                )
+            if not item.example_sentence or not item.example_sentence.strip():
+                warnings.append(
+                    f"Item {i} ({item.item_type}): missing required example_sentence"
+                )
+
+        # Confidence is validated by schema (Literal["high", "medium", "low"])
+        # possible_duplicate_reason is optional metadata - no validation needed
 
     return output, warnings
 

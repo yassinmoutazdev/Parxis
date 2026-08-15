@@ -9,7 +9,6 @@ import logging
 from sqlmodel import select
 
 from app.db.engine import Session
-from app.db.models.approval import ApprovalQueue, ApprovalSourceType
 from app.db.models.learning_item import LearningItem
 from app.db.models.performance_error import PerformanceError, PerformanceErrorSource
 from app.db.models.writing import (
@@ -195,7 +194,7 @@ class WritingService:
         4. On failure: WritingEvaluation.status = EVALUATION_FAILED; return error
         5. INSERT WritingEvaluation with scores + provenance
         6. For mini task: INSERT PerformanceError rows (ADR-05 exception)
-        7. For suggested_items: INSERT ApprovalQueue rows (approval-gated)
+        7. For suggested_items: auto-insert, retry, or silently drop (no approval queue)
 
         Args:
             prompt_id: The writing prompt ID
@@ -379,13 +378,8 @@ class WritingService:
             )
             session.add(error)
 
-        # Route suggested_items to ApprovalQueue (approval-gated)
-        for item in result.suggested_items:
-            cls._create_approval_queue_item(
-                session=session,
-                item=item,
-                source_id=submission.id,
-            )
+        # Auto-insert, retry, or silently drop suggested_items - no approval queue.
+        cls._process_suggested_items(session, result.suggested_items, submission_text=text, submission_id=submission.id)
 
         return evaluation
 
@@ -465,13 +459,8 @@ class WritingService:
         session.add(evaluation)
         session.flush()
 
-        # Route suggested_items to ApprovalQueue (approval-gated)
-        for item in result.suggested_items:
-            cls._create_approval_queue_item(
-                session=session,
-                item=item,
-                source_id=submission.id,
-            )
+        # Auto-insert, retry, or silently drop suggested_items - no approval queue.
+        cls._process_suggested_items(session, result.suggested_items, submission_text=text, submission_id=submission.id)
 
         return evaluation
 
@@ -514,32 +503,71 @@ class WritingService:
         }
 
     @classmethod
-    def _create_approval_queue_item(
+    def _process_suggested_items(
         cls,
         session: Session,
-        item: ParsedItem,
-        source_id: int,
+        items: list[ParsedItem],
+        submission_text: str,
+        submission_id: int,
     ) -> None:
-        """Create an ApprovalQueue item from a suggested item.
+        """Auto-insert, retry, or silently drop writing-derived suggested items.
 
-        This is the approval-gated path for new knowledge extracted from
-        writing feedback (ADR-05).
+        No approval queue (Part H). Same gating rule as note ingestion (not
+        a likely duplicate, not low-confidence, not incomplete -> insert
+        directly), reusing IngestionService's shared duplicate-check, retry,
+        and insert helpers rather than duplicating that logic.
+
+        Unlike chat-sourced notes, writing feedback has no live conversation
+        turn to ask a clarifying question into - a submission is a discrete
+        result, not an ongoing chat exchange - so items still flagged after
+        one retry are dropped silently here, same as vault-sourced notes.
 
         Args:
-            session: Database session
-            item: Suggested ParsedItem
-            source_id: Source submission ID
+            session: Open DB session (caller commits)
+            items: Suggested items from the writing evaluation
+            submission_text: The submission text (used if a retry is needed)
+            submission_id: Source submission ID (for logging only - there's
+                no FK to store it against anymore)
         """
-        queue_item = ApprovalQueue(
-            source_type=ApprovalSourceType.WRITING_FEEDBACK,
-            source_id=source_id,
-            item_type=item.item_type,
-            extracted_text=item.text,
-            explanation=item.definition,
-            example_sentence=item.example_sentence,
-            source_context=item.source_excerpt,
+        from app.ingestion.duplicate_detection import find_similar
+        from app.ingestion.service import IngestionService
+
+        if not items:
+            return
+
+        to_insert: list[ParsedItem] = []
+        to_retry: list[ParsedItem] = []
+        duplicate_skipped_count = 0
+
+        for item in items:
+            similar = find_similar(item.text)
+            if similar:
+                duplicate_skipped_count += 1
+                continue
+            if IngestionService._needs_review(item):
+                to_retry.append(item)
+            else:
+                to_insert.append(item)
+
+        if to_retry:
+            retried_items = IngestionService._retry_flagged_items(to_retry, submission_text)
+            retried_texts = {i.text for i in retried_items}
+            for item in retried_items:
+                if not IngestionService._needs_review(item):
+                    to_insert.append(item)
+            dropped_count = len(to_retry) - sum(
+                1 for i in retried_items if not IngestionService._needs_review(i)
+            )
+        else:
+            dropped_count = 0
+
+        for item in to_insert:
+            IngestionService._insert_learning_item(session, item, note_id=None)
+
+        logger.info(
+            f"Submission {submission_id}: {len(to_insert)} inserted, "
+            f"{duplicate_skipped_count} duplicate-skipped, {dropped_count} dropped after retry"
         )
-        session.add(queue_item)
 
     @classmethod
     async def retry_evaluation(

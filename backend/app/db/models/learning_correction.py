@@ -10,7 +10,8 @@ class LearningCorrection(SQLModel, table=True):
 
     New knowledge extracted from a note or a writing-feedback suggestion
     (e.g. 'I used to say X, the correct/more natural form is Y').
-    Approval-gated, structurally identical in spirit to LearningItem.
+    Auto-screened (Part H) - not approval-gated. Structurally identical in
+    spirit to LearningItem.
     """
 
     __tablename__ = "learning_correction"
@@ -24,6 +25,5 @@ class LearningCorrection(SQLModel, table=True):
     source_writing_evaluation_id: int | None = Field(
         default=None, foreign_key="writing_evaluation.id", index=True
     )
-    source_approval_id: int = Field(index=True, foreign_key="approval_queue.id")
 
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)

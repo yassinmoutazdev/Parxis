@@ -10,7 +10,6 @@ from app.config import settings
 
 # Import all models to register them with SQLModel.metadata
 from app.db.models import (
-    approval,
     chat,
     learning_correction,
     learning_item,

@@ -56,6 +56,8 @@ class TestValidateParsedNote:
                 ParsedItem(
                     item_type="IDIOM",
                     text="break the ice",
+                    definition="to do or say something to relieve tension",
+                    example_sentence="He told a joke to break the ice.",
                     source_excerpt="Paraphrased content",  # Not in note
                 )
             ]

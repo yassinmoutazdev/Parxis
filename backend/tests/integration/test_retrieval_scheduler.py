@@ -15,7 +15,6 @@ from sqlmodel import SQLModel
 # Import all models to ensure tables are registered
 from app.db.models.source import Source, Lesson
 from app.db.models.note import Note
-from app.db.models.approval import ApprovalQueue, ApprovalSourceType, ApprovalStatus
 from app.db.models.learning_item import LearningItem, ItemType, Tag, LearningItemTag
 from app.db.models.learning_correction import LearningCorrection
 from app.db.models.performance_error import PerformanceError, PerformanceErrorSource
@@ -85,14 +84,12 @@ class TestSelectEligibleItems:
             text="test1",
             mastery_score=0.3,
             next_review_due=now - timedelta(days=1),
-            source_approval_id=1,
         )
         item2 = LearningItem(
             item_type=ItemType.IDIOM,
             text="test2",
             mastery_score=0.4,
             next_review_due=now - timedelta(days=1),
-            source_approval_id=2,
         )
 
         test_session.add(item1)
@@ -116,7 +113,6 @@ class TestSelectEligibleItems:
             text="due item",
             mastery_score=0.3,
             next_review_due=now - timedelta(days=1),
-            source_approval_id=1,
         )
 
         # Create not-due items
@@ -125,7 +121,6 @@ class TestSelectEligibleItems:
             text="not due item",
             mastery_score=0.8,
             next_review_due=now + timedelta(days=10),
-            source_approval_id=2,
         )
 
         test_session.add(due_item)
@@ -152,7 +147,6 @@ class TestSelectEligibleItems:
                 text=f"col{i}",
                 mastery_score=0.3,
                 next_review_due=now - timedelta(days=1),
-                source_approval_id=i + 1,
             )
             items.append(item)
 
@@ -162,7 +156,6 @@ class TestSelectEligibleItems:
                 text=f"idiom{i}",
                 mastery_score=0.3,
                 next_review_due=now - timedelta(days=1),
-                source_approval_id=i + 100,
             )
             items.append(item)
 
@@ -204,7 +197,6 @@ class TestWeekScopedQueries:
             item_type=ItemType.COLLOCATION,
             text="test",
             created_at=datetime(2024, 1, 5),
-            source_approval_id=1,
         )
         test_session.add(item)
         test_session.commit()
@@ -224,7 +216,6 @@ class TestWeekScopedQueries:
             item_type=ItemType.COLLOCATION,
             text="test",
             created_at=datetime(2024, 2, 1),
-            source_approval_id=1,
         )
         test_session.add(item)
         test_session.commit()

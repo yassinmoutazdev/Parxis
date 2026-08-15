@@ -172,10 +172,9 @@ function WeeklyFeedback({ evaluation }: { evaluation: WritingEvaluation }) {
       {/* Suggested Items */}
       {evaluation.suggested_items_json && evaluation.suggested_items_json.length > 0 && (
         <div className="space-y-3">
-          <h4 className="font-medium text-ink">Suggested Learning Items</h4>
+          <h4 className="font-medium text-ink">Learning Items From This Submission</h4>
           <p className="text-sm text-ink-muted">
-            Review these items in the Approvals page to add them to your learning
-            collection.
+            These were added to your learning set automatically.
           </p>
         </div>
       )}

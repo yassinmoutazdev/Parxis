@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from app.db.engine import Session
-from app.db.models.note import Note, NoteStatus
+from app.db.models.note import Note, NoteSource, NoteStatus
 from app.llm import ollama_adapter
-from app.llm.schemas import ParsedNoteOutput
+from app.llm.schemas import ParsedItem, ParsedNoteOutput
 from app.llm.validation import validate_output
 
 logger = logging.getLogger(__name__)
@@ -26,41 +26,54 @@ class IngestionService:
     MAX_PARSE_RETRIES = 2
 
     @classmethod
-    def process_note(cls, note_id: int) -> bool:
+    def process_note(cls, note_id: int) -> tuple[bool, list[ParsedItem]]:
         """Process a note through the ingestion pipeline.
 
-        Corresponds to ARCHITECTURE Section 6.1 (process_note sequence):
-        1. Set Note.status = PARSING
-        2. Call Generator.generate(task="parse_note", ...)
-        3. Handle schema/semantic validation failures
-        4. On success: create ApprovalQueue rows
+        No approval queue (Part H). Extracted items are either auto-inserted,
+        silently dropped (duplicates, or vault-sourced items still
+        unresolved after one retry), or - for chat-sourced notes only -
+        returned as still-unresolved so the caller (the chat coach) can ask
+        the user for clarification in its next reply.
 
         Args:
             note_id: The ID of the Note to process
 
         Returns:
-            True if processing succeeded, False otherwise
+            (success, unresolved_items) - unresolved_items is always empty
+            for vault-sourced notes (those are dropped, not surfaced) and
+            only non-empty for chat-sourced notes that still need a human
+            answer after the automatic retry.
         """
         with Session() as session:
             # Fetch the note
             note = session.query(Note).filter(Note.id == note_id).first()
             if not note:
                 logger.error(f"Note {note_id} not found")
-                return False
+                return False, []
 
-            # Read file content
-            file_path = Path(note.vault_path)
-            if not file_path.exists():
-                logger.error(f"Note file not found: {note.vault_path}")
-                cls._mark_failed(session, note)
-                return False
+            # Chat-sourced notes carry their text directly (no file on disk);
+            # vault-sourced notes are read from the watched file.
+            if note.source == NoteSource.CHAT:
+                content = note.content or ""
+                if not content.strip():
+                    logger.error(f"Chat note {note_id} has no content")
+                    cls._mark_failed(session, note)
+                    return False, []
+            else:
+                file_path = Path(note.vault_path)
+                if not file_path.exists():
+                    logger.error(f"Note file not found: {note.vault_path}")
+                    cls._mark_failed(session, note)
+                    return False, []
 
-            try:
-                content = file_path.read_text(encoding="utf-8")
-            except Exception as e:
-                logger.error(f"Error reading note file: {e}")
-                cls._mark_failed(session, note)
-                return False
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                except Exception as e:
+                    logger.error(f"Error reading note file: {e}")
+                    cls._mark_failed(session, note)
+                    return False, []
+
+            note_source = note.source
 
             # Set status to PARSING
             note.status = NoteStatus.PARSING
@@ -71,20 +84,28 @@ class IngestionService:
 
         if parse_result is None:
             # Parsing failed after retries
-            cls._mark_failed(session, note)
-            return False
+            with Session() as session:
+                note = session.query(Note).filter(Note.id == note_id).first()
+                cls._mark_failed(session, note)
+            return False, []
 
-        # Validation passed - create approval queue entries
-        cls._create_approval_queue_entries(note_id, parse_result)
+        # Validation passed - route extracted items (auto-insert, silent
+        # skip, or - for chat-sourced notes only - hand back items still
+        # needing clarification after one retry).
+        unresolved = cls._route_extracted_items(
+            note_id, parse_result, content, source=note_source
+        )
 
-        # Mark note as pending approval
+        # Mark note as processed either way. Unresolved chat items are
+        # handled by the caller as part of the same conversation turn, not
+        # tracked as a note-level pending state.
         with Session() as session:
             note = session.query(Note).filter(Note.id == note_id).first()
-            note.status = NoteStatus.PENDING_APPROVAL
+            note.status = NoteStatus.PROCESSED
             session.commit()
 
         logger.info(f"Note {note_id} processed successfully")
-        return True
+        return True, unresolved
 
     @classmethod
     def _parse_note_with_retry(
@@ -203,73 +224,218 @@ class IngestionService:
         logger.error(f"Note {note.id} marked as PARSE_FAILED")
 
     @classmethod
-    def _create_approval_queue_entries(
-        cls, note_id: int, parsed_output: ParsedNoteOutput
-    ) -> None:
-        """Create ApprovalQueue entries from parsed note output.
+    def _route_extracted_items(
+        cls,
+        note_id: int,
+        parsed_output: ParsedNoteOutput,
+        note_content: str,
+        source: NoteSource = NoteSource.VAULT,
+    ) -> list[ParsedItem]:
+        """Route extracted items: auto-insert, silently drop, or (chat only)
+        hand back for clarification. No approval queue (Part H).
 
-        Corresponds to ARCHITECTURE Section 6.2 (create ApprovalQueue step).
+        Gating rule (unchanged from Part E): an item auto-inserts directly
+        when ALL hold: not a likely duplicate, confidence is not "low",
+        and it's complete (definition + example_sentence present for
+        non-CORRECTION types).
+
+        Items that fail that check get ONE retry via _retry_flagged_items
+        (duplicates are never retried - they're just dropped, since the
+        content is already covered by an existing item). After retry:
+        - still flagged AND source == VAULT -> dropped silently (no one is
+          watching a file-sync event to answer a question).
+        - still flagged AND source == CHAT -> returned to the caller so the
+          coach can ask the user for clarification in its next reply.
 
         Args:
             note_id: The note ID
             parsed_output: The parsed note output
+            note_content: The raw source text (used if a retry is needed)
+            source: Where this note came from - determines what happens to
+                items still flagged after retry
+
+        Returns:
+            Items still needing clarification. Always empty for
+            source=VAULT (those are dropped, not surfaced).
         """
-        from app.db.engine import Session
-        from app.db.models.approval import ApprovalQueue, ApprovalSourceType
+        from app.db.models.learning_item import ItemType, LearningItem
 
+        existing_items = cls._find_similar_items(parsed_output)
+
+        to_insert: list[ParsedItem] = []
+        to_retry: list[ParsedItem] = []
+        duplicate_skipped_count = 0
+
+        for item in parsed_output.items:
+            if cls._matches_existing(item, existing_items):
+                duplicate_skipped_count += 1
+                continue
+            if cls._needs_review(item):
+                to_retry.append(item)
+            else:
+                to_insert.append(item)
+
+        unresolved: list[ParsedItem] = []
+        if to_retry:
+            retried_items = cls._retry_flagged_items(to_retry, note_content)
+            retried_texts = {i.text for i in retried_items}
+
+            for item in retried_items:
+                if cls._needs_review(item):
+                    unresolved.append(item)
+                else:
+                    to_insert.append(item)
+
+            # The model may drop an item entirely on retry instead of
+            # re-emitting a (still-flawed) version of it - treat that the
+            # same as "still needs review".
+            for original in to_retry:
+                if original.text not in retried_texts:
+                    unresolved.append(original)
+
+        inserted_count = 0
         with Session() as session:
-            # Get existing pending approvals from this note to avoid duplicates
-            existing_texts = set(
-                row[0]
-                for row in session.query(ApprovalQueue.extracted_text)
-                .filter(
-                    ApprovalQueue.source_id == note_id,
-                    ApprovalQueue.source_type == ApprovalSourceType.NOTE_PARSE,
-                    ApprovalQueue.status == "PENDING",
-                )
-                .all()
-            )
-
-            # Get similar items for duplicate detection against approved items
-            existing_items = cls._find_similar_items(parsed_output)
-
-            new_entries_count = 0
-            skipped_count = 0
-
-            for item in parsed_output.items:
-                # Skip if already in pending approvals for this note
-                if item.text in existing_texts:
-                    skipped_count += 1
-                    continue
-
-                # Check for potential duplicate against existing learning items
-                possible_duplicate_of = None
-                if existing_items:
-                    for existing in existing_items:
-                        if cls._is_potential_duplicate(item.text, existing.text):
-                            possible_duplicate_of = existing.id
-                            break
-
-                # Create approval queue entry
-                queue_entry = ApprovalQueue(
-                    source_type=ApprovalSourceType.NOTE_PARSE,
-                    source_id=note_id,
-                    item_type=item.item_type,
-                    extracted_text=item.text,
-                    explanation=item.definition,
-                    example_sentence=item.example_sentence,
-                    source_context=item.source_excerpt,
-                    possible_duplicate_of=possible_duplicate_of,
-                )
-                session.add(queue_entry)
-                new_entries_count += 1
-
+            for item in to_insert:
+                cls._insert_learning_item(session, item, note_id=note_id)
+                inserted_count += 1
             session.commit()
 
+        if source == NoteSource.VAULT:
+            dropped_count = len(unresolved)
+            logger.info(
+                f"Routed items: {inserted_count} inserted, "
+                f"{duplicate_skipped_count} duplicate-skipped, "
+                f"{dropped_count} dropped after retry (vault source, no one to ask)"
+            )
+            return []
+
         logger.info(
-            f"Created {new_entries_count} approval queue entries, "
-            f"skipped {skipped_count} duplicates"
+            f"Routed items: {inserted_count} inserted, "
+            f"{duplicate_skipped_count} duplicate-skipped, "
+            f"{len(unresolved)} need clarification (chat source)"
         )
+        return unresolved
+
+    @staticmethod
+    def _insert_learning_item(session: Session, item: ParsedItem, note_id: int | None) -> None:
+        """Insert a resolved item as a LearningItem or LearningCorrection.
+
+        Args:
+            session: Open DB session (caller commits)
+            item: The item to insert
+            note_id: Source note ID, if any (None for writing-feedback-sourced items)
+        """
+        from app.db.models.learning_correction import LearningCorrection
+        from app.db.models.learning_item import ItemType, LearningItem
+
+        if item.item_type == "CORRECTION":
+            session.add(
+                LearningCorrection(
+                    wrong_form=item.wrong_form or item.text,
+                    correct_form=item.correct_form or "",
+                    explanation=item.definition,
+                    example_sentence=item.example_sentence,
+                    source_note_id=note_id,
+                )
+            )
+        else:
+            session.add(
+                LearningItem(
+                    item_type=ItemType(item.item_type),
+                    text=item.text,
+                    definition=item.definition,
+                    example_sentence=item.example_sentence,
+                    source_note_id=note_id,
+                    mastery_score=0.3,
+                    review_count=0,
+                    correct_count=0,
+                    incorrect_count=0,
+                    ease_factor=2.5,
+                    interval_days=0,
+                    suspended=False,
+                )
+            )
+
+    @classmethod
+    def _needs_review(cls, item: ParsedItem) -> bool:
+        """True if an item is low-confidence or incomplete (not a duplicate check)."""
+        is_low_confidence = item.confidence == "low"
+        is_incomplete = item.item_type != "CORRECTION" and (
+            not item.definition
+            or not item.definition.strip()
+            or not item.example_sentence
+            or not item.example_sentence.strip()
+        )
+        return is_low_confidence or is_incomplete
+
+    @classmethod
+    def _matches_existing(cls, item: ParsedItem, existing_items: list[Any]) -> bool:
+        """True if item looks like a duplicate of something already in the DB."""
+        return any(cls._is_potential_duplicate(item.text, existing.text) for existing in existing_items)
+
+    @classmethod
+    def _describe_issue(cls, item: ParsedItem) -> str:
+        """Human-readable description of why an item needs review, for the retry prompt."""
+        if item.confidence == "low":
+            return item.low_confidence_reason or "low confidence, no reason given"
+        missing = []
+        if not item.definition or not item.definition.strip():
+            missing.append("definition")
+        if not item.example_sentence or not item.example_sentence.strip():
+            missing.append("example_sentence")
+        return f"missing {' and '.join(missing)}" if missing else "flagged for review"
+
+    @classmethod
+    def _retry_flagged_items(
+        cls, flagged_items: list[ParsedItem], source_content: str
+    ) -> list[ParsedItem]:
+        """One targeted retry for items flagged as low-confidence or incomplete.
+
+        Reuses the PARSE_NOTE task, appending a targeted instruction asking
+        the model to re-extract only the flagged items, resolving the
+        specific issue noted for each (low_confidence_reason, or the
+        missing field). Shared by both note ingestion and writing-feedback
+        extraction - source_content is note text or submission text.
+
+        Args:
+            flagged_items: Items that failed the auto-insert gate
+            source_content: The original text the items were drawn from
+
+        Returns:
+            The model's corrected items (may be fewer than flagged_items if
+            the model drops one instead of fixing it - callers should treat
+            a missing text as still-unresolved).
+        """
+        from app.llm.interface import TaskType
+
+        if not flagged_items:
+            return []
+
+        issue_lines = "\n".join(
+            f'- "{item.text}": {cls._describe_issue(item)}' for item in flagged_items
+        )
+        retry_content = (
+            f"{source_content}\n\n---\n"
+            "RETRY: re-extract ONLY the following items, resolving the specific "
+            "issue noted for each. Return just these corrected items:\n"
+            f"{issue_lines}"
+        )
+
+        try:
+            result = ollama_adapter.ollama_adapter.generate_sync(
+                task=TaskType.PARSE_NOTE,
+                context={"note_content": retry_content, "recent_item_texts": []},
+                output_schema=ParsedNoteOutput,
+            )
+            validated_result, _ = validate_output(
+                task=TaskType.PARSE_NOTE,
+                output=result,
+                context={"note_content": retry_content},
+            )
+            return validated_result.items
+        except Exception as e:
+            logger.warning(f"Retry for flagged items failed: {e}")
+            return []
 
     @classmethod
     def _find_similar_items(

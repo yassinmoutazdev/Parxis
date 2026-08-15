@@ -17,6 +17,8 @@ class ParsedItem(BaseModel):
     """A single parsed item extracted from a note.
 
     Corresponds to ARCHITECTURE Section 9.1 (Parser Output schema).
+    Updated per Part E: confidence field, required definition/example_sentence
+    (except CORRECTION), possible_duplicate_reason for semantic redundancy.
     """
 
     item_type: Literal[
@@ -28,8 +30,8 @@ class ParsedItem(BaseModel):
         "CORRECTION",
     ]
     text: str
-    definition: str | None = None
-    example_sentence: str | None = None
+    definition: str | None = None  # Required for non-CORRECTION types (validated in validation.py)
+    example_sentence: str | None = None  # Required for non-CORRECTION types (validated in validation.py)
     source_excerpt: str = Field(
         description="verbatim span from note_content this was drawn from"
     )
@@ -40,6 +42,25 @@ class ParsedItem(BaseModel):
     correct_form: str | None = Field(
         default=None,
         description="only for CORRECTION item_type",
+    )
+    confidence: Literal["high", "medium", "low"] = Field(
+        default="medium",
+        description="Model's self-reported confidence in this extraction",
+    )
+    low_confidence_reason: str | None = Field(
+        default=None,
+        description=(
+            "Only populated when confidence == 'low'. What specifically is "
+            "uncertain (ambiguous sense, idiomatic vs. literal, unclear "
+            "register, etc.) - not a generic 'not sure'. Reused verbatim as "
+            "both the retry correction instruction and, for chat-sourced "
+            "items still unresolved after retry, the clarifying question "
+            "asked back to the user."
+        ),
+    )
+    possible_duplicate_reason: str | None = Field(
+        default=None,
+        description="If model suspects semantic overlap with recent_items_section, explain why",
     )
 
 

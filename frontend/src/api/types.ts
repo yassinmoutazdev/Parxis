@@ -1,10 +1,8 @@
 // TypeScript types mirroring backend Pydantic/SQLModel schemas
 
 // Enums
-export type NoteStatus = 'NEW' | 'PARSING' | 'PENDING_APPROVAL' | 'PROCESSED' | 'PARSE_FAILED'
-
-export type ApprovalSourceType = 'NOTE_PARSE' | 'WRITING_FEEDBACK' | 'QUIZ_FEEDBACK'
-export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'EDITED_APPROVED' | 'REJECTED'
+export type NoteStatus = 'NEW' | 'PARSING' | 'PROCESSED' | 'PARSE_FAILED'
+export type NoteSource = 'vault' | 'chat'
 
 export type ItemType = 'COLLOCATION' | 'IDIOM' | 'PHRASAL_VERB' | 'GRAMMAR_NOTE' | 'PERSONAL_EXAMPLE'
 
@@ -35,30 +33,15 @@ export interface Lesson {
 // Note
 export interface Note {
   id: number
-  vault_path: string
+  source: NoteSource
+  vault_path: string | null
+  content: string | null
   content_hash: string
   lesson_id: number | null
   status: NoteStatus
   changed_since_processed: boolean
   created_at: string
   processed_at: string | null
-}
-
-// Approval Queue
-export interface ApprovalQueueItem {
-  id: number
-  source_type: ApprovalSourceType
-  source_id: number
-  item_type: string
-  extracted_text: string
-  explanation: string | null
-  example_sentence: string | null
-  source_context: string
-  possible_duplicate_of: number | null
-  status: ApprovalStatus
-  reviewed_payload: Record<string, unknown> | null
-  created_at: string
-  reviewed_at: string | null
 }
 
 // Learning Item
@@ -69,7 +52,6 @@ export interface LearningItem {
   definition: string | null
   example_sentence: string | null
   source_note_id: number | null
-  source_approval_id: number
   mastery_score: number
   review_count: number
   correct_count: number
@@ -91,7 +73,6 @@ export interface LearningCorrection {
   example_sentence: string | null
   source_note_id: number | null
   source_writing_evaluation_id: number | null
-  source_approval_id: number
   created_at: string
 }
 
@@ -195,7 +176,6 @@ export interface DashboardOverview {
   mastery_index: number | null
   category_mastery_avg: number | null
   writing_performance_avg: number | null
-  pending_approvals_count: number
   week_snapshot: {
     items_studied: number
     quiz_sessions: number

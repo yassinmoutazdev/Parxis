@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader } from '../../../shared/components/Card'
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner'
+import { EmptyState } from '../../../shared/components/EmptyState'
 import { masteryStop } from '../../../shared/utils/masteryColor'
 import type { DashboardOverview, CefrBand, CefrTrend } from '../../../api/types'
 
@@ -70,6 +71,26 @@ export function ProficiencyCard({ data, isLoading, error }: ProficiencyCardProps
 
   const proficiency = data?.proficiency
   const masteryIndex = data?.mastery_index
+
+  // Empty state: valid response but no proficiency data yet (band === null)
+  if (proficiency?.band === null) {
+    return (
+      <Card>
+        <CardHeader>
+          <h2 className="font-serif text-lg text-ink">CEFR Proficiency</h2>
+          <p className="text-sm text-ink-muted">
+            Based on weekly writing evaluations with hysteresis
+          </p>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            title="No proficiency data yet"
+            description="Complete a weekly writing evaluation to get your first CEFR estimate"
+          />
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>

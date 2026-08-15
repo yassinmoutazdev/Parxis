@@ -16,17 +16,6 @@ export default function DashboardPage() {
         <p className="text-ink-muted">Track your learning progress</p>
       </div>
 
-      {/* Pending approvals badge */}
-      {overviewData && overviewData.pending_approvals_count > 0 && (
-        <div className="mb-4 p-3 bg-accent-tint border border-accent/30 rounded-lg">
-          <p className="text-accent-text text-sm">
-            You have{' '}
-            <span className="font-semibold">{overviewData.pending_approvals_count}</span>
-            {' '}items awaiting approval
-          </p>
-        </div>
-      )}
-
       {/* Dashboard Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Proficiency Card - spans full width on mobile */}

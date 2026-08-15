@@ -125,6 +125,11 @@ CONFIG_DEFINITIONS: dict[str, dict[str, Any]] = {
         "default": str(app_settings.vault_path),
         "description": "Path to the Obsidian vault Praxis watches for notes",
     },
+    "ollama_api_key": {
+        "type": "string",
+        "default": str(app_settings.ollama_api_key),
+        "description": "Ollama Cloud API key (optional - enables cloud models)",
+    },
 }
 
 

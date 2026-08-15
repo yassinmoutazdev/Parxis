@@ -16,13 +16,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
+class ProficiencyBand(BaseModel):
+    """CEFR proficiency band with trend and last evaluation week.
+
+    Matches ProficiencyService.get_current_band() return shape.
+    """
+    band: str | None  # CEFR band (A1-C2) or None if no data yet
+    trend: str        # "up" | "down" | "steady"
+    last_eval_week_start: str | None
+
+
 class OverviewResponse(BaseModel):
     """Response for dashboard overview endpoint."""
 
-    proficiency: float | None
+    proficiency: ProficiencyBand
     category_mastery_avg: float | None
     writing_performance_avg: float | None
-    pending_approvals_count: int
     week_snapshot: dict[str, int]
     health: dict[str, Any]
 
@@ -51,13 +60,12 @@ class ItemBrowserResponse(BaseModel):
 
 @router.get("/overview")
 async def get_overview(request: Request) -> OverviewResponse:
-    """Get dashboard overview with proficiency, pending approvals, and health.
+    """Get dashboard overview with proficiency and health.
 
     This endpoint returns:
-    - proficiency: blended score (40% item mastery / 60% writing performance)
+    - proficiency: CEFR band with trend (hysteresis-smoothed from weekly writing evals)
     - category_mastery_avg: raw category mastery average
     - writing_performance_avg: recent writing performance average
-    - pending_approvals_count: count of items awaiting approval
     - week_snapshot: this week's activity stats
     - health: VaultWatcher status
     """

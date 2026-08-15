@@ -16,7 +16,6 @@ from sqlmodel import SQLModel
 # Import all models to ensure tables are registered
 from app.db.models.source import Source, Lesson
 from app.db.models.note import Note
-from app.db.models.approval import ApprovalQueue
 from app.db.models.learning_item import LearningItem, ItemType
 from app.db.models.performance_error import PerformanceError
 from app.db.models.writing import WritingPrompt, WritingSubmission, WritingEvaluation
@@ -189,7 +188,6 @@ class TestReportService:
                 ease_factor=2.5,
                 interval_days=1,
                 review_count=0,
-                source_approval_id=1,
             ),
             LearningItem(
                 item_type=ItemType.IDIOM,
@@ -201,7 +199,6 @@ class TestReportService:
                 ease_factor=2.5,
                 interval_days=1,
                 review_count=0,
-                source_approval_id=2,
             ),
         ]
 

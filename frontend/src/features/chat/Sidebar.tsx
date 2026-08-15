@@ -121,13 +121,17 @@ export default function Sidebar() {
           )}
 
           {isLoading ? (
-            <div className="px-4 py-2 text-ink-muted text-sm">
-              Loading...
-            </div>
+            !collapsed && (
+              <div className="px-4 py-2 text-ink-muted text-sm">
+                Loading...
+              </div>
+            )
           ) : filteredThreads.length === 0 ? (
-            <div className="px-4 py-2 text-ink-muted text-sm">
-              {searchQuery ? 'No matches' : 'No conversations yet'}
-            </div>
+            !collapsed && (
+              <div className="px-4 py-2 text-ink-muted text-sm">
+                {searchQuery ? 'No matches' : 'No conversations yet'}
+              </div>
+            )
           ) : (
             filteredThreads.map((thread) => (
               <Link
@@ -168,7 +172,7 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* Settings & Approvals */}
+      {/* Settings */}
       <div className="border-t border-border py-2">
         {/* Settings */}
         <Link
@@ -180,17 +184,6 @@ export default function Sidebar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           {!collapsed && <span>Settings</span>}
-        </Link>
-
-        {/* Approvals */}
-        <Link
-          to="/approvals"
-          className="flex items-center gap-3 px-4 py-2 text-ink-muted hover:bg-border hover:text-ink transition-colors"
-        >
-          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {!collapsed && <span>Approvals</span>}
         </Link>
 
         {/* Collapse Toggle */}

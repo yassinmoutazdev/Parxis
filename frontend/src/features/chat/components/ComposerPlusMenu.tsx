@@ -1,31 +1,33 @@
 import { useState } from 'react'
 import { Button } from '../../../shared/components/Button'
 
-type PlusTab = 'quiz' | 'writing'
+type PlusTab = 'quiz' | 'writing' | 'note'
 type WritingChoiceMode = 'mini' | 'weekly'
 
 interface ComposerPlusMenuProps {
   onClose: () => void
   onStartQuiz: (size: number) => void
   onStartWriting: (mode: WritingChoiceMode) => void
+  onSaveNote: (content: string) => void
   disabled?: boolean
 }
 
 /**
- * Popover opened by the composer's "+" button (Work Item D). Lets the
- * learner trigger a quiz or writing session directly, bypassing the LLM
- * entirely -- a second entry point into the same start_quiz_action /
- * start_writing_action backend code paths the LLM tool-call already uses.
+ * Popover opened by the composer's "+" button. Lets the learner trigger
+ * a quiz, writing session, or save a note directly -- bypassing the LLM
+ * entirely for a second entry point into the same backend code paths.
  */
 export function ComposerPlusMenu({
   onClose,
   onStartQuiz,
   onStartWriting,
+  onSaveNote,
   disabled,
 }: ComposerPlusMenuProps) {
   const [tab, setTab] = useState<PlusTab>('quiz')
   const [writingChoice, setWritingChoice] = useState<WritingChoiceMode>('mini')
   const [quizSize, setQuizSize] = useState(10)
+  const [noteContent, setNoteContent] = useState('')
 
   return (
     <div className="absolute bottom-full left-0 mb-2 w-[min(90vw,640px)] max-h-[70vh] overflow-y-auto bg-surface border border-border rounded-card shadow-lg p-4 z-20">
@@ -52,6 +54,17 @@ export function ComposerPlusMenu({
           }`}
         >
           Writing
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('note')}
+          className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            tab === 'note'
+              ? 'border-accent text-ink'
+              : 'border-transparent text-ink-muted hover:text-ink'
+          }`}
+        >
+          Note
         </button>
         <button
           type="button"
@@ -97,7 +110,7 @@ export function ComposerPlusMenu({
             Start Quiz
           </Button>
         </div>
-      ) : (
+      ) : tab === 'writing' ? (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-ink">Choose Writing Type</h2>
 
@@ -142,6 +155,35 @@ export function ComposerPlusMenu({
           >
             Start Writing
           </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-ink">Save a Note</h2>
+          <p className="text-sm text-ink-muted">
+            Save something you want to remember — a phrase, explanation, or example.
+            It'll be parsed for learnable items and added to your learning set.
+          </p>
+          <textarea
+            value={noteContent}
+            onChange={(e) => setNoteContent(e.target.value)}
+            disabled={disabled}
+            rows={6}
+            className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-ink placeholder-ink-muted focus:border-accent focus:outline-none resize-y"
+            placeholder="Paste or type your note here..."
+          />
+          <Button
+            onClick={() => {
+              if (noteContent.trim()) {
+                onSaveNote(noteContent.trim())
+                onClose()
+              }
+            }}
+            disabled={disabled || !noteContent.trim()}
+            size="lg"
+            className="w-full"
+          >
+            Save Note
+          </Button>
         </div>
       )}
     </div>

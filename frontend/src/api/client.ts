@@ -2,7 +2,6 @@
 
 import type {
   Note,
-  ApprovalQueueItem,
   LearningItem,
   LearningItemBrowser,
   QuizSession,
@@ -111,40 +110,6 @@ export async function getItems(
   params.set('limit', limit.toString())
   params.set('offset', offset.toString())
   return request(`/dashboard/items?${params.toString()}`)
-}
-
-// Approvals
-export async function getPendingApprovals(): Promise<ApprovalQueueItem[]> {
-  return request('/approvals?status=PENDING')
-}
-
-export async function getApprovalItem(id: number): Promise<ApprovalQueueItem> {
-  return request(`/approvals?id=${id}`)
-}
-
-export async function approveItem(
-  id: number,
-  editedPayload?: Record<string, unknown>
-): Promise<{ learning_item_id: number | null; message: string }> {
-  if (editedPayload && Object.keys(editedPayload).length > 0) {
-    return request(`/approvals/${id}/approve-edited`, {
-      method: 'POST',
-      body: JSON.stringify(editedPayload),
-    })
-  }
-  return request(`/approvals/${id}/approve`, {
-    method: 'POST',
-  })
-}
-
-export async function rejectItem(id: number): Promise<{ learning_item_id: number | null; message: string }> {
-  return request(`/approvals/${id}/reject`, {
-    method: 'POST',
-  })
-}
-
-export async function getPendingCount(): Promise<{ count: number }> {
-  return request('/approvals/pending-count')
 }
 
 // Learning Items
@@ -306,6 +271,21 @@ export async function getNotes(): Promise<Note[]> {
   return request('/notes')
 }
 
+export async function saveNote(threadId: number, content: string): Promise<{
+  id: number
+  thread_id: number
+  role: string
+  content: string
+  action_type: string
+  action_ref_id: number | null
+  created_at: string
+}> {
+  return request(`/chat/threads/${threadId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+}
+
 // Tags
 export async function getTags(): Promise<Array<{ id: number; name: string }>> {
   return request('/tags')
@@ -346,5 +326,34 @@ export async function setVaultPath(vaultPath: string): Promise<VaultPathSetResul
   return request('/settings/vault-path', {
     method: 'PUT',
     body: JSON.stringify({ vault_path: vaultPath }),
+  })
+}
+
+// Ollama API Key (Part F)
+export interface OllamaKeyStatus {
+  configured: boolean
+}
+
+export interface OllamaKeyMasked {
+  masked: string | null
+}
+
+export interface OllamaKeySetResponse {
+  masked: string
+  message: string
+}
+
+export async function getOllamaKeyStatus(): Promise<OllamaKeyStatus> {
+  return request('/settings/ollama-key-status')
+}
+
+export async function getOllamaKey(): Promise<OllamaKeyMasked> {
+  return request('/settings/ollama-key')
+}
+
+export async function setOllamaKey(key: string): Promise<OllamaKeySetResponse> {
+  return request('/settings/ollama-key', {
+    method: 'PUT',
+    body: JSON.stringify({ key }),
   })
 }

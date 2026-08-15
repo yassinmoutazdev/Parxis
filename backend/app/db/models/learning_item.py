@@ -27,7 +27,6 @@ class LearningItem(SQLModel, table=True):
     definition: str | None = Field(default=None)
     example_sentence: str | None = Field(default=None)
     source_note_id: int | None = Field(default=None, foreign_key="note.id", index=True)
-    source_approval_id: int = Field(index=True, foreign_key="approval_queue.id")
 
     # Mastery and scheduling fields
     mastery_score: float = Field(default=0.3)
