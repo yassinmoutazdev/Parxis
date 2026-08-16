@@ -5,10 +5,13 @@ Corresponds to PRAXIS_CHAT_COACH_PLAN Section 3.4 (first four endpoints) and Sec
 
 import logging
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query 
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from app.chat.attachments import process_attachment
 from app.chat.service import ChatService
 from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
 logger = logging.getLogger(__name__)
@@ -25,6 +28,15 @@ class ChatThreadResponse(BaseModel):
     updated_at: datetime
 
 
+class AttachmentResponse(BaseModel):
+    """Response for a chat message attachment (Epic B)."""
+
+    id: int
+    filename: str
+    kind: str
+    mime_type: str
+
+
 class ChatMessageResponse(BaseModel):
     """Response for a chat message."""
 
@@ -35,6 +47,7 @@ class ChatMessageResponse(BaseModel):
     action_type: str
     action_ref_id: int | None
     created_at: datetime
+    attachments: list[AttachmentResponse] | None = None
 
 
 class ChatThreadDetailResponse(BaseModel):
@@ -48,17 +61,17 @@ class ChatThreadDetailResponse(BaseModel):
     messages: list[ChatMessageResponse]
 
 
-class SendMessageRequest(BaseModel):
-    """Request body for sending a message."""
-
-    content: str
-
-
 class SendMessageResponse(BaseModel):
     """Response for sending a message (returns both user and assistant messages)."""
 
     user_message: ChatMessageResponse
     assistant_message: ChatMessageResponse
+
+
+class EditMessageRequest(BaseModel):
+    """Request body for editing a user message (Epic A: edit-with-regenerate)."""
+
+    content: str
 
 
 class StartQuizDirectRequest(BaseModel):
@@ -92,6 +105,29 @@ class SaveNoteRequest(BaseModel):
     """
 
     content: str = Field(min_length=1)
+
+
+def _attachments_response(message_id: int) -> list[AttachmentResponse] | None:
+    """Build the AttachmentResponse list for a message, or None if empty.
+
+    Args:
+        message_id: The message ID
+
+    Returns:
+        List of AttachmentResponse, or None if the message has no attachments
+    """
+    attachments = ChatService.list_attachments(message_id)
+    if not attachments:
+        return None
+    return [
+        AttachmentResponse(
+            id=a.id, # type: ignore
+            filename=a.filename,
+            kind=a.kind.value,
+            mime_type=a.mime_type,
+        )
+        for a in attachments
+    ]
 
 
 @router.post("/threads", response_model=ChatThreadResponse, status_code=201)
@@ -176,6 +212,7 @@ async def get_thread(thread_id: int) -> ChatThreadDetailResponse:
                     action_type=m.action_type.value,
                     action_ref_id=m.action_ref_id,
                     created_at=m.created_at,
+                    attachments=_attachments_response(m.id), # type: ignore
                 )
                 for m in messages
             ],
@@ -208,24 +245,31 @@ async def delete_thread(thread_id: int) -> None:
 
 @router.post("/threads/{thread_id}/messages", response_model=SendMessageResponse)
 async def send_message(
-    thread_id: int, request: SendMessageRequest
+    thread_id: int,
+    content: str = Form(...),
+    files: list[UploadFile] = File(default=[]),
 ) -> SendMessageResponse:
     """Send a message in a thread and get a coach reply.
 
     This endpoint:
     1. Appends the user message
-    2. Calls generate_reply to get the coach's response
-    3. Returns both messages
+    2. Validates and processes any attached files (Epic B -- ephemeral,
+       single-turn context; never fed into the vault-watcher/ingestion
+       pipeline)
+    3. Calls generate_reply to get the coach's response
+    4. Returns both messages
 
     Args:
         thread_id: The thread ID
-        request: Message content
+        content: Message content (multipart form field)
+        files: Optional attached files (.txt, .md, .pdf, .docx, images)
 
     Returns:
         SendMessageResponse with user and assistant messages
 
     Raises:
-        HTTPException: 404 if thread not found
+        HTTPException: 404 if thread not found, 400 for unsupported/oversized
+            attachments
     """
     try:
         # Verify thread exists
@@ -235,8 +279,96 @@ async def send_message(
         user_message = ChatService.append_message(
             thread_id=thread_id,
             role=ChatRole.USER,
-            content=request.content,
+            content=content,
         )
+
+        # Validate, extract, and persist any attachments (400s raised by
+        # process_attachment propagate as-is, not caught by the except
+        # blocks below).
+        for upload in files:
+            kind, extracted_text, stored_path = await process_attachment(upload)
+            ChatService.add_attachment(
+                message_id=user_message.id, # type: ignore
+                filename=upload.filename or "attachment",
+                mime_type=upload.content_type or "application/octet-stream",
+                kind=kind,
+                extracted_text=extracted_text,
+                stored_path=stored_path,
+            )
+
+        # Generate assistant reply
+        assistant_message = await ChatService.generate_reply(thread_id)
+
+        return SendMessageResponse(
+            user_message=ChatMessageResponse(
+                id=user_message.id, # type: ignore
+                thread_id=user_message.thread_id,
+                role=user_message.role.value,
+                content=user_message.content,
+                action_type=user_message.action_type.value,
+                action_ref_id=user_message.action_ref_id,
+                created_at=user_message.created_at,
+                attachments=_attachments_response(user_message.id), # type: ignore
+            ),
+            assistant_message=ChatMessageResponse(
+                id=assistant_message.id, # type: ignore
+                thread_id=assistant_message.thread_id,
+                role=assistant_message.role.value,
+                content=assistant_message.content,
+                action_type=assistant_message.action_type.value,
+                action_ref_id=assistant_message.action_ref_id,
+                created_at=assistant_message.created_at,
+            ),
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to send message to thread {thread_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send message")
+
+
+@router.put("/threads/{thread_id}/messages/{message_id}", response_model=SendMessageResponse)
+async def edit_message(
+    thread_id: int, message_id: int, request: EditMessageRequest
+) -> SendMessageResponse:
+    """Edit a user message and regenerate the coach's reply (Epic A).
+
+    This is a hard truncate-and-regenerate, not branching: editing a user
+    message updates its content, deletes every later message in the thread,
+    then generates a fresh assistant reply exactly as `send_message` does.
+
+    Args:
+        thread_id: The thread ID
+        message_id: The message ID (must belong to the thread and be USER)
+        request: New message content
+
+    Returns:
+        SendMessageResponse with the updated user message and new assistant message
+
+    Raises:
+        HTTPException: 404 if the thread or message isn't found, 400 if the
+            message isn't a user message
+    """
+    try:
+        # Verify thread and message exist and are related
+        ChatService.get_thread(thread_id)
+        message = ChatService.get_message(thread_id, message_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if message.role != ChatRole.USER:
+        raise HTTPException(
+            status_code=400, detail="Only user messages can be edited"
+        )
+
+    try:
+        user_message = ChatService.update_message_content(
+            thread_id, message_id, request.content
+        )
+        ChatService.truncate_after(thread_id, message_id)
 
         # Generate assistant reply
         assistant_message = await ChatService.generate_reply(thread_id)
@@ -265,8 +397,37 @@ async def send_message(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Failed to send message to thread {thread_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to send message")
+        logger.error(f"Failed to edit message {message_id} in thread {thread_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to edit message")
+
+
+@router.get("/attachments/{attachment_id}/file")
+async def get_attachment_file(attachment_id: int) -> FileResponse:
+    """Serve a stored image attachment back for re-rendering (Epic B).
+
+    Args:
+        attachment_id: The attachment ID
+
+    Returns:
+        The stored file, with the attachment's original content-type and
+        filename
+
+    Raises:
+        HTTPException: 404 if the attachment or its stored file is missing
+    """
+    try:
+        attachment = ChatService.get_attachment(attachment_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if not attachment.stored_path or not Path(attachment.stored_path).exists():
+        raise HTTPException(status_code=404, detail="Attachment file not found")
+
+    return FileResponse(
+        attachment.stored_path,
+        media_type=attachment.mime_type,
+        filename=attachment.filename,
+    )
 
 
 @router.post(

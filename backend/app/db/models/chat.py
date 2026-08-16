@@ -46,3 +46,30 @@ class ChatMessage(SQLModel, table=True):
     action_type: ChatActionType = Field(default=ChatActionType.NONE)
     action_ref_id: int | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class AttachmentKind(str, Enum):
+    """Kind of chat message attachment."""
+
+    TEXT = "text"
+    IMAGE = "image"
+
+
+class ChatMessageAttachment(SQLModel, table=True):
+    """An ephemeral file attached to a single chat message.
+
+    Attachments are context for that one conversation turn only -- they are
+    NOT fed into the vault-watcher/ingestion pipeline and never produce
+    learning_item/learning_correction/tracked note records.
+    """
+
+    __tablename__ = "chat_message_attachment"
+
+    id: int | None = Field(default=None, primary_key=True)
+    message_id: int = Field(index=True, foreign_key="chat_message.id")
+    filename: str
+    mime_type: str
+    kind: AttachmentKind
+    extracted_text: str | None = Field(default=None)
+    stored_path: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)

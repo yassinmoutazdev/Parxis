@@ -5,9 +5,20 @@ Corresponds to PRAXIS_CHAT_COACH_PLAN Section 3.3 (CRUD layer) and Section 4.2 (
 
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
+from sqlalchemy import and_, or_
+
+from app.chat.attachments import read_image_base64
 from app.db.engine import Session
-from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
+from app.db.models.chat import (
+    AttachmentKind,
+    ChatActionType,
+    ChatMessage,
+    ChatMessageAttachment,
+    ChatRole,
+    ChatThread,
+)
 from app.db.models.learning_item import LearningItem
 from app.db.models.note import Note, NoteSource, NoteStatus
 from app.ingestion.service import IngestionService
@@ -111,6 +122,86 @@ class ChatService:
             return messages
 
     @classmethod
+    def list_attachments(cls, message_id: int) -> list[ChatMessageAttachment]:
+        """List attachments for a message, ordered by creation.
+
+        Args:
+            message_id: The message ID
+
+        Returns:
+            List of ChatMessageAttachment objects
+        """
+        with Session() as session:
+            return (
+                session.query(ChatMessageAttachment)
+                .filter(ChatMessageAttachment.message_id == message_id)  # type: ignore
+                .order_by(ChatMessageAttachment.created_at.asc())  # type: ignore
+                .all()
+            )
+
+    @classmethod
+    def get_attachment(cls, attachment_id: int) -> ChatMessageAttachment:
+        """Get an attachment by ID.
+
+        Args:
+            attachment_id: The attachment ID
+
+        Returns:
+            The ChatMessageAttachment
+
+        Raises:
+            ValueError: If not found
+        """
+        with Session() as session:
+            attachment = session.get(ChatMessageAttachment, attachment_id)
+            if not attachment:
+                raise ValueError(f"Chat attachment {attachment_id} not found")
+            return attachment
+
+    @classmethod
+    def add_attachment(
+        cls,
+        message_id: int,
+        filename: str,
+        mime_type: str,
+        kind: AttachmentKind,
+        extracted_text: str | None = None,
+        stored_path: str | None = None,
+    ) -> ChatMessageAttachment:
+        """Persist a single chat message attachment row.
+
+        Ephemeral, single-turn context only (Epic B): this only ever
+        attaches to a ChatMessage -- it never touches the vault-watcher/
+        ingestion pipeline and never creates learning_item/
+        learning_correction/note records.
+
+        Args:
+            message_id: The message this attachment belongs to
+            filename: Original filename
+            mime_type: The upload's content type
+            kind: TEXT or IMAGE
+            extracted_text: Extracted text, for TEXT-kind attachments
+            stored_path: Path to the saved file, for IMAGE-kind attachments
+
+        Returns:
+            The created ChatMessageAttachment
+        """
+        with Session() as session:
+            attachment = ChatMessageAttachment(
+                message_id=message_id,
+                filename=filename,
+                mime_type=mime_type,
+                kind=kind,
+                extracted_text=extracted_text,
+                stored_path=stored_path,
+                created_at=datetime.now(timezone.utc),
+            )
+            session.add(attachment)
+            session.commit()
+            session.refresh(attachment)
+            return attachment
+
+    @classmethod
     def append_message(
         cls,
         thread_id: int,
@@ -156,6 +247,93 @@ class ChatService:
             session.commit()
             session.refresh(message)
             return message
+
+    @classmethod
+    def get_message(cls, thread_id: int, message_id: int) -> ChatMessage:
+        """Get a message by ID, scoped to a thread.
+
+        Args:
+            thread_id: The thread the message is expected to belong to
+            message_id: The message ID
+
+        Returns:
+            The ChatMessage
+
+        Raises:
+            ValueError: If the message doesn't exist or belongs to a
+                different thread
+        """
+        with Session() as session:
+            message = session.get(ChatMessage, message_id)
+            if not message or message.thread_id != thread_id:
+                raise ValueError(
+                    f"Chat message {message_id} not found in thread {thread_id}"
+                )
+            return message
+
+    @classmethod
+    def update_message_content(
+        cls, thread_id: int, message_id: int, content: str
+    ) -> ChatMessage:
+        """Update a message's content in place.
+
+        Args:
+            thread_id: The thread the message is expected to belong to
+            message_id: The message ID
+            content: The new content
+
+        Returns:
+            The updated ChatMessage
+
+        Raises:
+            ValueError: If the message doesn't exist or belongs to a
+                different thread
+        """
+        with Session() as session:
+            message = session.get(ChatMessage, message_id)
+            if not message or message.thread_id != thread_id:
+                raise ValueError(
+                    f"Chat message {message_id} not found in thread {thread_id}"
+                )
+            message.content = content
+            session.commit()
+            session.refresh(message)
+            return message
+
+    @classmethod
+    def truncate_after(cls, thread_id: int, message_id: int) -> None:
+        """Delete every message in a thread positioned after the given message.
+
+        Position follows the same (created_at, id) ordering `list_messages`
+        returns, so `created_at` ties are broken deterministically by id.
+        Used by the edit-with-regenerate flow to hard-truncate a thread back
+        to the edited message before a fresh reply is generated.
+
+        Args:
+            thread_id: The thread ID
+            message_id: The anchor message; everything after it is deleted
+
+        Raises:
+            ValueError: If the anchor message doesn't exist or belongs to a
+                different thread
+        """
+        with Session() as session:
+            anchor = session.get(ChatMessage, message_id)
+            if not anchor or anchor.thread_id != thread_id:
+                raise ValueError(
+                    f"Chat message {message_id} not found in thread {thread_id}"
+                )
+            session.query(ChatMessage).filter(
+                ChatMessage.thread_id == thread_id,  # type: ignore
+                or_(
+                    ChatMessage.created_at > anchor.created_at,  # type: ignore
+                    and_(
+                        ChatMessage.created_at == anchor.created_at,  # type: ignore
+                        ChatMessage.id > anchor.id,  # type: ignore
+                    ),
+                ),
+            ).delete(synchronize_session=False)
+            session.commit()
 
     @classmethod
     def delete_thread(cls, thread_id: int) -> None:
@@ -244,7 +422,7 @@ class ChatService:
     @classmethod
     def _format_history_for_tools(
         cls, messages: list[ChatMessage]
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """Format messages as a chat history list for tool-calling turns.
 
         Unlike `_format_messages` (a single flattened string for the old
@@ -252,21 +430,40 @@ class ChatService:
         the model sees a proper multi-turn chat, per Ollama's native chat
         message format.
 
+        Epic B: any attachments on a message are folded into that same
+        turn -- text/markdown/PDF/DOCX extracted text is appended to the
+        message content (clearly delimited), and image bytes are collected
+        into that message dict's `images` field per Ollama's native
+        multimodal chat API.
+
         Args:
             messages: List of ChatMessage objects
 
         Returns:
-            List of {"role": "user"|"assistant", "content": str} dicts,
-            SYSTEM-role messages excluded (the system prompt is sent
-            separately).
+            List of {"role": "user"|"assistant", "content": str, "images"?:
+            list[str]} dicts, SYSTEM-role messages excluded (the system
+            prompt is sent separately).
         """
         role_map = {ChatRole.USER: "user", ChatRole.ASSISTANT: "assistant"}
-        history = []
+        history: list[dict[str, Any]] = []
         for msg in messages[-20:]:  # Last 20 messages
             mapped_role = role_map.get(msg.role)
             if mapped_role is None:
                 continue
-            history.append({"role": mapped_role, "content": msg.content})
+
+            content = msg.content
+            images: list[str] = []
+
+            for attachment in cls.list_attachments(msg.id) if msg.id else []:
+                if attachment.kind == AttachmentKind.TEXT and attachment.extracted_text:
+                    content += f"\n\n[Attached: {attachment.filename}]\n{attachment.extracted_text}"
+                elif attachment.kind == AttachmentKind.IMAGE and attachment.stored_path:
+                    images.append(read_image_base64(attachment.stored_path))
+
+            entry: dict[str, Any] = {"role": mapped_role, "content": content}
+            if images:
+                entry["images"] = images
+            history.append(entry)
         return history
 
     @classmethod

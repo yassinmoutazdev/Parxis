@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Ensure data directory exists
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
     settings.backup_dir.mkdir(parents=True, exist_ok=True)
+    settings.chat_attachments_dir.mkdir(parents=True, exist_ok=True)
 
     # Check and perform backup if needed (idempotent)
     from app.backup.service import BackupService

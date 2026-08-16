@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import ReactMarkdown from 'react-markdown'
 import {
   useThread,
   useCreateThread,
   useSendMessage,
+  useEditMessage,
   useCompleteQuiz,
   useCompleteWriting,
   useStartQuizDirect,
@@ -15,6 +17,7 @@ import { QuizRunner } from '../quizzes/components/QuizRunner'
 import { ChatWritingWidget } from './components/ChatWritingWidget'
 import { ComposerPlusMenu } from './components/ComposerPlusMenu'
 import { getWritingPrompt, saveNote } from '../../api/client'
+import { getErrorMessage } from '../../api/errors'
 import type { QuizSession, QuizQuestion, WritingPrompt } from '../../api/types'
 
 interface QuizWidgetData {
@@ -38,10 +41,28 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Proactive offline indicator: flips as soon as the browser notices the
+  // connection drop, instead of the person only finding out after a send
+  // silently fails.
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== 'undefined' && navigator.onLine === false
+  )
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
   // Queries and mutations
   const { data: threadDetail, isLoading: isLoadingThread } = useThread(numericThreadId ?? null)
   const createThread = useCreateThread()
   const sendMessage = useSendMessage()
+  const editMessage = useEditMessage()
   const completeQuiz = useCompleteQuiz()
   const completeWriting = useCompleteWriting()
   const startQuizDirect = useStartQuizDirect()
@@ -56,6 +77,19 @@ export default function ChatPage() {
   // Optimistic user message shown immediately on send, before the server
   // round-trip resolves and the thread query refetches with the real data.
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
+
+  // Copy-to-clipboard feedback: briefly shows a checkmark on the message
+  // that was just copied.
+  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null)
+
+  // Inline edit state for the message currently being edited (user
+  // messages only).
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null)
+  const [editingContent, setEditingContent] = useState('')
+
+  // Files staged in the composer, attached to the next outgoing message
+  // (Epic B: ephemeral chat attachments).
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -117,9 +151,10 @@ export default function ChatPage() {
   }
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+    if ((!input.trim() && selectedFiles.length === 0) || isLoading) return
 
     const content = input.trim()
+    const files = selectedFiles
     setError(null)
     setIsLoading(true)
 
@@ -127,7 +162,8 @@ export default function ChatPage() {
     // instead of waiting for the full round-trip (user_message +
     // assistant_message) to come back.
     setInput('')
-    setPendingMessage(content)
+    setSelectedFiles([])
+    setPendingMessage(content || (files.length ? `${files.length} file(s) attached` : content))
 
     try {
       const thread = await ensureThread()
@@ -136,6 +172,7 @@ export default function ChatPage() {
       const result = await sendMessage.mutateAsync({
         threadId: thread,
         content,
+        files,
       })
 
       // Make sure the real messages have landed in the cache before we drop
@@ -150,9 +187,10 @@ export default function ChatPage() {
         await loadWritingWidget(result.assistant_message.action_ref_id)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send message')
+      setError(getErrorMessage(err, 'Failed to send message'))
       // Restore the message to the composer so the user can retry.
       setInput(content)
+      setSelectedFiles(files)
     } finally {
       setIsLoading(false)
       setPendingMessage(null)
@@ -173,7 +211,7 @@ export default function ChatPage() {
         await loadQuizWidget(message.action_ref_id)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start quiz')
+      setError(getErrorMessage(err, 'Failed to start quiz'))
     }
   }
 
@@ -187,7 +225,7 @@ export default function ChatPage() {
         await loadWritingWidget(message.action_ref_id)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start writing session')
+      setError(getErrorMessage(err, 'Failed to start writing session'))
     }
   }
 
@@ -199,7 +237,66 @@ export default function ChatPage() {
       await queryClient.refetchQueries({ queryKey: ['chat', 'thread', thread] })
       // No widget to load for notes - just a confirmation message appears in chat
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save note')
+      setError(getErrorMessage(err, 'Failed to save note'))
+    }
+  }
+
+  const handleCopy = async (msg: ChatMessage) => {
+    try {
+      await navigator.clipboard.writeText(msg.content)
+      setCopiedMessageId(msg.id)
+      setTimeout(() => {
+        setCopiedMessageId((id) => (id === msg.id ? null : id))
+      }, 1500)
+    } catch (err) {
+      console.error('Failed to copy message:', err)
+    }
+  }
+
+  const handleEditStart = (msg: ChatMessage) => {
+    setEditingMessageId(msg.id)
+    setEditingContent(msg.content)
+  }
+
+  const handleEditCancel = () => {
+    setEditingMessageId(null)
+    setEditingContent('')
+  }
+
+  const handleEditSave = async (messageId: number) => {
+    const content = editingContent.trim()
+    if (!numericThreadId || !content) return
+
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const result = await editMessage.mutateAsync({
+        threadId: numericThreadId,
+        messageId,
+        content,
+      })
+
+      setEditingMessageId(null)
+
+      // Editing hard-truncates everything after this message, so any
+      // quiz/writing widget in flight is now stale -- clear it before
+      // deciding (below, from the fresh reply) whether a new one replaces it.
+      setQuizWidget(null)
+      setWritingWidget(null)
+
+      await queryClient.refetchQueries({ queryKey: ['chat', 'thread', numericThreadId] })
+
+      if (result.assistant_message.action_type === 'QUIZ' && result.assistant_message.action_ref_id) {
+        await loadQuizWidget(result.assistant_message.action_ref_id)
+      }
+      if (result.assistant_message.action_type === 'WRITING' && result.assistant_message.action_ref_id) {
+        await loadWritingWidget(result.assistant_message.action_ref_id)
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to save edit'))
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -249,20 +346,117 @@ export default function ChatPage() {
 
   const renderMessage = (msg: ChatMessage) => {
     const isUser = msg.role === 'USER'
+    const isEditing = editingMessageId === msg.id
+    const isCopied = copiedMessageId === msg.id
+
     return (
       <div
         key={msg.id}
-        className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
+        className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'} mb-4`}
       >
         <div
           className={`max-w-[70%] rounded-card px-4 py-2 ${
             isUser
               ? 'bg-accent text-white'
               : 'bg-surface text-ink'
-          }`}
+          } ${isEditing ? 'w-[70%]' : ''}`}
         >
-          <p className="whitespace-pre-wrap">{msg.content}</p>
+          {isEditing ? (
+            <div className="flex flex-col gap-2">
+              <textarea
+                value={editingContent}
+                onChange={(e) => setEditingContent(e.target.value)}
+                autoFocus
+                rows={Math.min(8, Math.max(2, editingContent.split('\n').length))}
+                className="w-full resize-none bg-transparent text-white placeholder-white/70 focus:outline-none"
+              />
+              <div className="flex justify-end gap-2 text-sm">
+                <button
+                  type="button"
+                  onClick={handleEditCancel}
+                  className="px-2 py-1 rounded hover:bg-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleEditSave(msg.id)}
+                  disabled={!editingContent.trim() || isLoading}
+                  className="px-2 py-1 rounded bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : isUser ? (
+            <p className="whitespace-pre-wrap">{msg.content}</p>
+          ) : (
+            <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-p:my-3 prose-headings:font-semibold prose-h1:text-2xl prose-h1:mt-6 prose-h1:mb-3 prose-h2:text-xl prose-h2:mt-5 prose-h2:mb-2.5 prose-h3:text-lg prose-h3:mt-4 prose-h3:mb-2 prose-strong:font-semibold prose-ul:my-3 prose-ol:my-3 prose-li:my-1.5 prose-li:leading-relaxed prose-pre:my-3 prose-pre:bg-black/20 prose-code:before:content-none prose-code:after:content-none">
+              <ReactMarkdown>{msg.content}</ReactMarkdown>
+            </div>
+          )}
+
+          {!isEditing && msg.attachments && msg.attachments.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {msg.attachments.map((att) =>
+                att.kind === 'image' ? (
+                  <img
+                    key={att.id}
+                    src={`/api/chat/attachments/${att.id}/file`}
+                    alt={att.filename}
+                    className="max-w-[160px] max-h-[160px] rounded-lg border border-border object-cover"
+                  />
+                ) : (
+                  <span
+                    key={att.id}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/10 text-xs"
+                  >
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {att.filename}
+                  </span>
+                )
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Hover-revealed icon row: copy on every message, edit on user
+            messages only. Hidden while this bubble is being edited. */}
+        {!isEditing && (
+          <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={() => handleCopy(msg)}
+              aria-label="Copy message"
+              className="flex items-center justify-center w-6 h-6 rounded text-ink-muted hover:bg-border hover:text-ink transition-colors"
+            >
+              {isCopied ? (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              )}
+            </button>
+
+            {isUser && (
+              <button
+                type="button"
+                onClick={() => handleEditStart(msg)}
+                aria-label="Edit message"
+                className="flex items-center justify-center w-6 h-6 rounded text-ink-muted hover:bg-border hover:text-ink transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -295,7 +489,14 @@ export default function ChatPage() {
               onStartQuiz={handleStartQuizDirect}
               onStartWriting={handleStartWritingDirect}
               onSaveNote={handleSaveNoteDirect}
+              files={selectedFiles}
+              onFilesChange={setSelectedFiles}
             />
+            {isOffline && (
+              <p className="text-amber-500 mt-2">
+                You&apos;re offline &mdash; messages won&apos;t send until your connection is back.
+              </p>
+            )}
             {error && <p className="text-red-500 mt-2">{error}</p>}
           </div>
         </div>
@@ -365,7 +566,14 @@ export default function ChatPage() {
           placeholder="Type your message..."
           onStartQuiz={handleStartQuizDirect}
           onStartWriting={handleStartWritingDirect}
+          files={selectedFiles}
+          onFilesChange={setSelectedFiles}
         />
+        {isOffline && (
+          <p className="text-amber-500 mt-2">
+            You&apos;re offline &mdash; messages won&apos;t send until your connection is back.
+          </p>
+        )}
         {error && <p className="text-red-500 mt-2">{error}</p>}
       </div>
     </div>
@@ -382,6 +590,8 @@ function Composer({
   onStartQuiz,
   onStartWriting,
   onSaveNote,
+  files,
+  onFilesChange,
 }: {
   value: string
   onChange: (v: string) => void
@@ -391,8 +601,11 @@ function Composer({
   onStartQuiz?: (size: number) => void
   onStartWriting?: (mode: 'mini' | 'weekly') => void
   onSaveNote?: (content: string) => void
+  files?: File[]
+  onFilesChange?: (files: File[]) => void
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [plusMenuOpen, setPlusMenuOpen] = useState(false)
 
   // Auto-resize: start at one line, grow with content up to a max height,
@@ -412,57 +625,119 @@ function Composer({
     }
   }
 
+  const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? [])
+    if (picked.length && onFilesChange) {
+      onFilesChange([...(files ?? []), ...picked])
+    }
+    // Reset so selecting the same file again still fires onChange.
+    e.target.value = ''
+  }
+
+  const removeFile = (index: number) => {
+    if (!onFilesChange) return
+    onFilesChange((files ?? []).filter((_, i) => i !== index))
+  }
+
   const showPlusMenu = onStartQuiz && onStartWriting
 
   return (
-    <div className="relative flex items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:ring-2 focus-within:ring-accent/40">
-      {showPlusMenu && (
-        <>
-          <button
-            type="button"
-            onClick={() => setPlusMenuOpen(prev => !prev)}
-            disabled={disabled}
-            aria-label="Start a quiz or writing session"
-            aria-expanded={plusMenuOpen}
-            className="flex items-center justify-center w-9 h-9 rounded-full text-ink-muted hover:bg-border hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-
-          {plusMenuOpen && (
-            <ComposerPlusMenu
-              disabled={disabled}
-              onClose={() => setPlusMenuOpen(false)}
-              onStartQuiz={onStartQuiz!}
-              onStartWriting={onStartWriting!}
-              onSaveNote={onSaveNote!}
-            />
-          )}
-        </>
+    <div className="flex flex-col gap-2">
+      {/* Selected file chips, shown above the composer before sending */}
+      {files && files.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-1">
+          {files.map((f, i) => (
+            <span
+              key={`${f.name}-${i}`}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-border text-xs text-ink"
+            >
+              {f.name}
+              <button
+                type="button"
+                onClick={() => removeFile(i)}
+                aria-label={`Remove ${f.name}`}
+                className="text-ink-muted hover:text-ink"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
       )}
 
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        placeholder={placeholder}
-        className="flex-1 resize-none bg-transparent text-ink placeholder:text-ink-faint px-1 py-1.5 focus:outline-none disabled:opacity-50 max-h-[200px] overflow-y-auto"
-        rows={1}
-      />
-      <button
-        onClick={onSubmit}
-        disabled={disabled || !value.trim()}
-        aria-label="Send message"
-        className="flex items-center justify-center w-9 h-9 rounded-full bg-accent text-white hover:bg-accent-hover disabled:bg-border disabled:text-ink-faint disabled:cursor-not-allowed transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
-        </svg>
-      </button>
+      <div className="relative flex items-end gap-2 rounded-card border border-border bg-surface px-3 py-2 focus-within:ring-2 focus-within:ring-accent/40">
+        {showPlusMenu && (
+          <>
+            <button
+              type="button"
+              onClick={() => setPlusMenuOpen(prev => !prev)}
+              disabled={disabled}
+              aria-label="Start a quiz or writing session"
+              aria-expanded={plusMenuOpen}
+              className="flex items-center justify-center w-9 h-9 rounded-full text-ink-muted hover:bg-border hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+
+            {plusMenuOpen && (
+              <ComposerPlusMenu
+                disabled={disabled}
+                onClose={() => setPlusMenuOpen(false)}
+                onStartQuiz={onStartQuiz!}
+                onStartWriting={onStartWriting!}
+                onSaveNote={onSaveNote!}
+              />
+            )}
+          </>
+        )}
+
+        {onFilesChange && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".txt,.md,.pdf,.docx,image/*"
+              onChange={handleFilesSelected}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              aria-label="Attach files"
+              className="flex items-center justify-center w-9 h-9 rounded-full text-ink-muted hover:bg-border hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21.44 11.05l-9.19 9.19a5 5 0 01-7.07-7.07l9.19-9.19a3.5 3.5 0 014.95 4.95l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+              </svg>
+            </button>
+          </>
+        )}
+
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          placeholder={placeholder}
+          className="flex-1 resize-none bg-transparent text-ink placeholder:text-ink-faint px-1 py-1.5 focus:outline-none disabled:opacity-50 max-h-[200px] overflow-y-auto"
+          rows={1}
+        />
+        <button
+          onClick={onSubmit}
+          disabled={disabled || (!value.trim() && !(files && files.length))}
+          aria-label="Send message"
+          className="flex items-center justify-center w-9 h-9 rounded-full bg-accent text-white hover:bg-accent-hover disabled:bg-border disabled:text-ink-faint disabled:cursor-not-allowed transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
+      </div>
     </div>
   )
 }

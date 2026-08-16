@@ -171,7 +171,7 @@ class OllamaAdapter:
         self,
         task: str,
         system_prompt: str,
-        history: list[dict[str, str]],
+        history: list[dict[str, Any]],
         tools: list[dict[str, Any]],
     ) -> ToolCallResult:
         """Run a chat turn with real Ollama tool-calling (not schema-forced JSON).
@@ -184,7 +184,10 @@ class OllamaAdapter:
         Args:
             task: The task identifier, used for inference settings lookup
             system_prompt: The system message content
-            history: Prior turns as [{"role": "user"|"assistant", "content": str}]
+            history: Prior turns as [{"role": "user"|"assistant", "content":
+                str, "images"?: list[str]}] -- the optional per-message
+                `images` field carries base64-encoded attachment bytes for
+                Ollama's native multimodal chat API
             tools: Ollama tool specs (see app.llm.tools)
 
         Returns:

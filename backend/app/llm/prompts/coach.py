@@ -25,7 +25,18 @@ Trigger rules (important):
   unless they bring it up again themselves.
 - Never call more than one tool in the same turn.
 
-For a normal conversational turn, just reply in plain text -- do not call a tool."""
+For a normal conversational turn, just reply in plain text -- do not call a tool.
+
+Formatting:
+- Use Markdown. For a short conversational reply, plain sentences are enough --
+  don't force headers or lists onto a one- or two-sentence answer.
+- When a reply has multiple distinct sections (e.g. summarizing an uploaded
+  document, breaking a topic into parts), use real Markdown headers (## and
+  ### as needed) for each section title. Do not fake a header by making a
+  whole line bold -- bold is only for emphasizing a word or phrase inside a
+  sentence, never for a standalone section title.
+- Use bullet or numbered lists for genuine lists of items, not for narrative
+  explanation."""
 
 # User-turn template: just the running conversation, formatted as chat history
 # by the caller and passed as `messages`; this string is kept for backward

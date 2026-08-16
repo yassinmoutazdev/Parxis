@@ -246,6 +246,16 @@ export interface ChatMessage {
   action_type: ChatActionType
   action_ref_id: number | null
   created_at: string
+  attachments?: ChatAttachment[] | null
+}
+
+export type ChatAttachmentKind = 'text' | 'image'
+
+export interface ChatAttachment {
+  id: number
+  filename: string
+  kind: ChatAttachmentKind
+  mime_type: string
 }
 
 export interface ChatThreadDetail extends ChatThread {

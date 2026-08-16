@@ -50,23 +50,60 @@ export function useCreateThread() {
   })
 }
 
-// Send a message and get reply
+// Send a message and get reply. Uses multipart form data so an optional
+// set of attachment files can ride alongside the text content (Epic B).
 export function useSendMessage() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({
       threadId,
       content,
+      files,
     }: {
       threadId: number
       content: string
+      files?: File[]
     }): Promise<{ user_message: ChatMessage; assistant_message: ChatMessage }> => {
+      const formData = new FormData()
+      formData.append('content', content)
+      for (const file of files ?? []) {
+        formData.append('files', file)
+      }
       const res = await fetch(`${API_BASE}/threads/${threadId}/messages`, {
         method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) throw new Error('Failed to send message')
+      return res.json()
+    },
+    onSuccess: (_, { threadId }) => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'thread', threadId] })
+      queryClient.invalidateQueries({ queryKey: ['chat', 'threads'] })
+    },
+  })
+}
+
+// Edit a user message: updates its content, truncates everything after it,
+// and returns the new assistant reply (hard truncate-and-regenerate, not
+// branching).
+export function useEditMessage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      threadId,
+      messageId,
+      content,
+    }: {
+      threadId: number
+      messageId: number
+      content: string
+    }): Promise<{ user_message: ChatMessage; assistant_message: ChatMessage }> => {
+      const res = await fetch(`${API_BASE}/threads/${threadId}/messages/${messageId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
       })
-      if (!res.ok) throw new Error('Failed to send message')
+      if (!res.ok) throw new Error('Failed to edit message')
       return res.json()
     },
     onSuccess: (_, { threadId }) => {

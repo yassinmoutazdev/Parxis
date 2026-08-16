@@ -28,6 +28,9 @@ class Settings(BaseSettings):
 
     # Backup settings
     backup_dir: Path = Path("./data/backups")
+
+    # Chat attachment settings (Epic B: ephemeral chat attachments)
+    chat_attachments_dir: Path = Path("./data/chat_attachments")
     backup_retention_daily: int = 14
     backup_retention_monthly: int = 6
 
