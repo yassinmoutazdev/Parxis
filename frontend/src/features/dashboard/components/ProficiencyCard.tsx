@@ -31,7 +31,7 @@ function getTrendIcon(trend: CefrTrend): string {
 function getTrendColor(trend: CefrTrend): string {
   switch (trend) {
     case 'up': return 'text-accent'
-    case 'down': return 'text-red-500'
+    case 'down': return 'text-danger-text'
     default: return 'text-ink-muted'
   }
 }
@@ -63,7 +63,7 @@ export function ProficiencyCard({ data, isLoading, error }: ProficiencyCardProps
           <h2 className="font-serif text-lg text-ink">CEFR Proficiency</h2>
         </CardHeader>
         <CardContent>
-          <p className="text-red-600">Failed to load proficiency data</p>
+          <p className="text-danger-text">Failed to load proficiency data</p>
         </CardContent>
       </Card>
     )
@@ -127,10 +127,19 @@ export function ProficiencyCard({ data, isLoading, error }: ProficiencyCardProps
           )}
         </div>
 
-        {/* Mastery index (legacy blended metric) */}
+        {/* Mastery index (legacy blended metric) -- renamed from the raw
+            "Mastery Index (legacy)" label to explain what it is and why
+            it's still here, since a learner has no context for "legacy"
+            on its own. */}
         {masteryIndex !== null && masteryIndex !== undefined && (
           <div className="mt-4 pt-4 border-t border-border">
-            <p className="text-sm text-ink-muted mb-1">Mastery Index (legacy)</p>
+            <p
+              className="text-sm text-ink-muted mb-1"
+              title="An earlier blended progress score, kept for reference while the CEFR band above becomes the primary proficiency measure."
+            >
+              Overall Progress Score{' '}
+              <span className="text-ink-faint">(previous scoring method)</span>
+            </p>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-medium" style={{ color: masteryStop(masteryIndex).hex }}>
                 {Math.round(masteryIndex * 100)}%
@@ -160,17 +169,23 @@ export function ProficiencyCard({ data, isLoading, error }: ProficiencyCardProps
           </div>
         )}
 
-        {/* Health status */}
+        {/* Health status -- "Vault Watcher" is internal architecture
+            language for the background process that syncs the user's notes
+            folder; renamed here to describe what it does for the learner,
+            with the raw status kept in a tooltip for anyone who wants it. */}
         {data?.health && (
           <div className="mt-4 pt-4 border-t border-border">
             <div className="flex items-center gap-2">
               <span
                 className={`w-2 h-2 rounded-full ${
-                  data.health.status === 'ok' ? 'bg-accent' : 'bg-amber-500'
+                  data.health.status === 'ok' ? 'bg-accent' : 'bg-warning'
                 }`}
               />
-              <span className="text-sm text-ink-muted">
-                Vault Watcher: {data.health.vault_watcher}
+              <span
+                className="text-sm text-ink-muted"
+                title={`Sync status: ${data.health.vault_watcher}`}
+              >
+                Notes sync: {data.health.vault_watcher}
               </span>
             </div>
           </div>

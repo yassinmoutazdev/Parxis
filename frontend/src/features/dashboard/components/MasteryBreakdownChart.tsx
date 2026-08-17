@@ -44,7 +44,7 @@ export function MasteryBreakdownChart({ data, isLoading, error }: MasteryBreakdo
           <h2 className="font-serif text-lg text-ink">Mastery by Category</h2>
         </CardHeader>
         <CardContent>
-          <p className="text-red-600">Failed to load mastery data</p>
+          <p className="text-danger-text">Failed to load mastery data</p>
         </CardContent>
       </Card>
     )

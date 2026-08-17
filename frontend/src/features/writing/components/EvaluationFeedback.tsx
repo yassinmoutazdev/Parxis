@@ -57,14 +57,14 @@ function MiniFeedback({
           {corrections.map((correction, index) => (
             <div
               key={index}
-              className="p-4 bg-red-50 border border-red-200 rounded-lg"
+              className="p-4 bg-danger-tint border border-danger-border rounded-lg"
             >
               <div className="flex items-start gap-2">
-                <span className="line-through text-red-600 font-medium">
+                <span className="line-through text-danger-text font-medium">
                   {correction.wrong}
                 </span>
                 <span className="text-ink-faint">→</span>
-                <span className="text-green-600 font-medium">
+                <span className="text-success-text font-medium">
                   {correction.correct}
                 </span>
               </div>
@@ -86,7 +86,7 @@ function MiniFeedback({
             {naturalnessNotes.map((note, index) => (
               <li
                 key={index}
-                className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-ink"
+                className="p-3 bg-warning-tint border border-warning-border rounded-lg text-ink"
               >
                 {note}
               </li>
@@ -125,16 +125,16 @@ function WeeklyFeedback({ evaluation }: { evaluation: WritingEvaluation }) {
 
   const getScoreColor = (score: number | null) => {
     if (score === null) return 'text-ink-faint'
-    if (score >= 80) return 'text-green-600'
-    if (score >= 60) return 'text-yellow-600'
-    return 'text-red-600'
+    if (score >= 80) return 'text-success-text'
+    if (score >= 60) return 'text-warning-text'
+    return 'text-danger-text'
   }
 
   const getScoreBgColor = (score: number | null) => {
     if (score === null) return 'bg-cream-100'
-    if (score >= 80) return 'bg-green-100'
-    if (score >= 60) return 'bg-yellow-100'
-    return 'bg-red-100'
+    if (score >= 80) return 'bg-success-tint'
+    if (score >= 60) return 'bg-warning-tint'
+    return 'bg-danger-tint'
   }
 
   return (

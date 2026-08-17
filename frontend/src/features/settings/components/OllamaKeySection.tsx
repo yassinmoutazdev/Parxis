@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardHeader, CardContent } from '../../../shared/components/Card'
 import { Button } from '../../../shared/components/Button'
 import { LoadingSpinner } from '../../../shared/components/LoadingSpinner'
+import { PasswordInput } from '../../../shared/components/PasswordInput'
 import { ApiError, getOllamaKey, setOllamaKey } from '../../../api/client'
 
 export function OllamaKeySection() {
@@ -83,7 +84,7 @@ export function OllamaKeySection() {
         )}
 
         {!isLoading && loadError && (
-          <p className="text-sm text-red-400">{loadError}</p>
+          <p className="text-sm text-danger-text">{loadError}</p>
         )}
 
         {!isLoading && !loadError && !isEditing && (
@@ -99,13 +100,12 @@ export function OllamaKeySection() {
 
         {!isLoading && !loadError && isEditing && (
           <div className="flex flex-col items-start gap-3">
-            <input
-              type="password"
+            <PasswordInput
               autoFocus
               value={keyInput}
               onChange={(e) => setKeyInput(e.target.value)}
               placeholder="Paste your Ollama Cloud API key"
-              className="w-full bg-cream-100 border border-border rounded-lg px-3 py-1.5 text-sm text-ink font-mono focus:outline-none focus:ring-2 focus:ring-accent"
+              inputClassName="bg-cream-100 border border-border rounded-lg px-3 py-1.5 text-sm text-ink font-mono focus:outline-none focus:ring-2 focus:ring-accent"
               disabled={isSaving}
             />
             <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export function OllamaKeySection() {
                 Cancel
               </Button>
             </div>
-            {saveError && <p className="text-sm text-red-400">{saveError}</p>}
+            {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
           </div>
         )}
 

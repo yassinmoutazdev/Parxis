@@ -79,7 +79,7 @@ export function VaultPathSection() {
           </div>
         )}
 
-        {error && <p className="text-sm text-red-400">Failed to load current folder.</p>}
+        {error && <p className="text-sm text-danger-text">Failed to load current folder.</p>}
 
         {!isLoading && !error && (
           <div className="flex flex-col items-start gap-3">

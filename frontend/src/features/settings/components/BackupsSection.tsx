@@ -49,7 +49,7 @@ export function BackupsSection() {
           </div>
         )}
 
-        {error && <p className="text-sm text-red-400">Failed to load backups.</p>}
+        {error && <p className="text-sm text-danger-text">Failed to load backups.</p>}
 
         {!isLoading && !error && backups && backups.length === 0 && (
           <EmptyState

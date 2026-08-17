@@ -123,8 +123,12 @@ export function useDeleteThread() {
       })
       if (!res.ok) throw new Error('Failed to delete thread')
     },
-    onSuccess: () => {
+    onSuccess: (_data, threadId) => {
       queryClient.invalidateQueries({ queryKey: ['chat', 'threads'] })
+      // Drop the deleted thread's own cached detail too, so navigating
+      // back to it (e.g. via browser back) doesn't briefly show stale
+      // content before erroring out.
+      queryClient.removeQueries({ queryKey: ['chat', 'thread', threadId] })
     },
   })
 }

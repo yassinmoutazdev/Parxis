@@ -21,7 +21,7 @@ export function EnvInfoSection() {
           </div>
         )}
 
-        {error && <p className="text-sm text-red-400">Failed to load environment info.</p>}
+        {error && <p className="text-sm text-danger-text">Failed to load environment info.</p>}
 
         {envInfo && (
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">

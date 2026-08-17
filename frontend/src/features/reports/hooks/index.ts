@@ -8,7 +8,7 @@ import {
   createWeeklyWritingPrompt,
   submitWeeklyWriting,
 } from '../../../api/client'
-import type { WeeklyReport } from '../../../api/types'
+import type { WeeklyReport, WritingEvaluation } from '../../../api/types'
 
 export interface WeeklyReviewState {
   weekStart: string | null
@@ -29,14 +29,11 @@ export interface WeeklyWritingState {
   promptId: number | null
   promptTopic: string | null
   submissionId: number | null
-  evaluation: {
-    id: number
-    grammar_score: number | null
-    naturalness_score: number | null
-    vocabulary_score: number | null
-    coherence_score: number | null
-    overall_score: number | null
-  } | null
+  // The API already returns the full WritingEvaluation object (same shape
+  // chat's EvaluationFeedback consumes) -- this used to narrow it down to a
+  // handful of score fields, which is what forced ReportsPage into a
+  // hand-rolled score grid instead of reusing EvaluationFeedback.
+  evaluation: WritingEvaluation | null
 }
 
 export function useStartWeeklyReview() {

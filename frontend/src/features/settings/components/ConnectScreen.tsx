@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react'
 import { Card, CardHeader, CardContent } from '../../../shared/components/Card'
 import { Button } from '../../../shared/components/Button'
+import { PasswordInput } from '../../../shared/components/PasswordInput'
 import { ApiError, setOllamaKey } from '../../../api/client'
 
 interface ConnectScreenProps {
@@ -62,17 +63,16 @@ export function ConnectScreen({ onConnected }: ConnectScreenProps) {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <input
-                type="password"
+              <PasswordInput
                 autoFocus
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
                 placeholder="Paste your Ollama Cloud API key"
-                className="w-full bg-cream-100 border border-border rounded-lg px-3 py-2 text-sm text-ink font-mono focus:outline-none focus:ring-2 focus:ring-accent"
+                inputClassName="bg-cream-100 border border-border rounded-lg px-3 py-2 text-sm text-ink font-mono focus:outline-none focus:ring-2 focus:ring-accent"
                 disabled={isSaving}
               />
 
-              {error && <p className="text-sm text-red-400">{error}</p>}
+              {error && <p className="text-sm text-danger-text">{error}</p>}
 
               <Button type="submit" disabled={isSaving} className="w-full">
                 {isSaving ? 'Verifying…' : 'Connect'}

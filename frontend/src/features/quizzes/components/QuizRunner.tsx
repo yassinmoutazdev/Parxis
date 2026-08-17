@@ -22,8 +22,8 @@ interface QuizRunnerProps {
 
 /**
  * Shared "taking a quiz" UI: progress header, QuestionCard, Prev/Next/Submit
- * navigation, and question dots. Used by both the standalone QuizPage and
- * the in-chat quiz widget so the two surfaces never drift out of sync
+ * navigation, and question dots. Used by the in-chat quiz widget and the
+ * Reports weekly-review flow so the two surfaces never drift out of sync
  * (see Work Item B, Praxis chat-integration refactor).
  */
 export function QuizRunner({
@@ -120,7 +120,7 @@ export function QuizRunner({
       </div>
 
       {submitError && (
-        <div className="p-4 bg-red-900/20 border border-red-500 rounded-lg text-red-400">{submitError}</div>
+        <div className="p-4 bg-danger-tint border border-danger-border rounded-lg text-danger-text">{submitError}</div>
       )}
     </div>
   )

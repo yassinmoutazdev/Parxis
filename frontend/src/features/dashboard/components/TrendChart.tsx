@@ -64,7 +64,7 @@ export function TrendChart({ data, isLoading, error }: TrendChartProps) {
           <h2 className="font-serif text-lg text-ink">Progress Trends</h2>
         </CardHeader>
         <CardContent>
-          <p className="text-red-600">Failed to load trend data</p>
+          <p className="text-danger-text">Failed to load trend data</p>
         </CardContent>
       </Card>
     )

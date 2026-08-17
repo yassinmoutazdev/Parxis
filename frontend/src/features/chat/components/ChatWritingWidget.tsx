@@ -12,9 +12,10 @@ interface ChatWritingWidgetProps {
 
 /**
  * In-chat writing widget: prompt card -> editor -> submit -> evaluation
- * feedback, built from the same components WritingPage.tsx already uses
- * (WritingPromptCard / WritingEditor / EvaluationFeedback), matching the
- * chat quiz widget's reuse-not-duplicate pattern (Work Item B).
+ * feedback, built from the shared writing components (WritingPromptCard /
+ * WritingEditor / EvaluationFeedback) also used by the Reports weekly-review
+ * flow, matching the chat quiz widget's reuse-not-duplicate pattern
+ * (Work Item B).
  *
  * On submit, POSTs to the existing /api/writing/submissions endpoint, then
  * calls onComplete (the chat thread's /writing/{prompt_id}/complete
@@ -72,7 +73,7 @@ export function ChatWritingWidget({ prompt, onComplete }: ChatWritingWidgetProps
       )}
 
       {error && (
-        <div className="p-4 bg-red-900/20 border border-red-500 rounded-lg text-red-400">{error}</div>
+        <div className="p-4 bg-danger-tint border border-danger-border rounded-lg text-danger-text">{error}</div>
       )}
     </div>
   )

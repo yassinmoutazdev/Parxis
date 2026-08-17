@@ -19,6 +19,17 @@ import { ComposerPlusMenu } from './components/ComposerPlusMenu'
 import { getWritingPrompt, saveNote } from '../../api/client'
 import { getErrorMessage } from '../../api/errors'
 import type { QuizSession, QuizQuestion, WritingPrompt } from '../../api/types'
+import { LoadingSpinner } from '../../shared/components/LoadingSpinner'
+
+// Attachment constraints shown in the composer (must match backend validation
+// in app/chat/attachments.py).
+const ACCEPTED_ATTACHMENT_TYPES = '.txt,.md,.pdf,.docx,image/*'
+const ACCEPTED_ATTACHMENT_LABEL = '.txt, .md, .pdf, .docx, or images'
+const MAX_ATTACHMENT_SIZE_MB = 10
+
+// How close to the bottom (in px) counts as "already at the bottom" for
+// auto-scroll purposes.
+const AUTO_SCROLL_THRESHOLD_PX = 120
 
 interface QuizWidgetData {
   sessionId: number
@@ -78,6 +89,11 @@ export default function ChatPage() {
   // round-trip resolves and the thread query refetches with the real data.
   const [pendingMessage, setPendingMessage] = useState<string | null>(null)
 
+  // A send that failed: kept visible as its own bubble with an inline
+  // retry, instead of vanishing and leaving only a generic caption under
+  // the composer disconnected from where the message was.
+  const [failedMessage, setFailedMessage] = useState<{ content: string; files: File[] } | null>(null)
+
   // Copy-to-clipboard feedback: briefly shows a checkmark on the message
   // that was just copied.
   const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null)
@@ -92,10 +108,32 @@ export default function ChatPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
-  // Scroll to bottom on new messages
+  // Whether there are new messages the user hasn't scrolled down to see yet.
+  const [hasNewMessages, setHasNewMessages] = useState(false)
+
+  const isNearBottom = () => {
+    const el = messagesContainerRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < AUTO_SCROLL_THRESHOLD_PX
+  }
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior })
+    setHasNewMessages(false)
+  }
+
+  // Only auto-scroll to the newest message if the user was already near the
+  // bottom -- otherwise leave their scroll position alone and surface a
+  // "jump to latest" pill instead, so reading back through history doesn't
+  // keep getting yanked down.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (isNearBottom()) {
+      scrollToBottom()
+    } else {
+      setHasNewMessages(true)
+    }
   }, [threadDetail?.messages])
 
   // Load quiz/writing widget if last message triggered one
@@ -150,19 +188,22 @@ export default function ChatPage() {
     return newThread.id
   }
 
-  const handleSend = async () => {
-    if ((!input.trim() && selectedFiles.length === 0) || isLoading) return
+  const handleSend = async (retry?: { content: string; files: File[] }) => {
+    const content = retry ? retry.content : input.trim()
+    const files = retry ? retry.files : selectedFiles
+    if ((!content && files.length === 0) || isLoading) return
 
-    const content = input.trim()
-    const files = selectedFiles
     setError(null)
+    setFailedMessage(null)
     setIsLoading(true)
 
     // Optimistic UI: clear the composer and show the bubble immediately,
     // instead of waiting for the full round-trip (user_message +
     // assistant_message) to come back.
-    setInput('')
-    setSelectedFiles([])
+    if (!retry) {
+      setInput('')
+      setSelectedFiles([])
+    }
     setPendingMessage(content || (files.length ? `${files.length} file(s) attached` : content))
 
     try {
@@ -188,13 +229,19 @@ export default function ChatPage() {
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to send message'))
-      // Restore the message to the composer so the user can retry.
-      setInput(content)
-      setSelectedFiles(files)
+      // Keep the message visible as a failed bubble with its own retry,
+      // instead of just restoring it to the composer where it's disconnected
+      // from where it appeared to fail.
+      setFailedMessage({ content, files })
     } finally {
       setIsLoading(false)
       setPendingMessage(null)
     }
+  }
+
+  const handleRetrySend = () => {
+    if (!failedMessage) return
+    handleSend(failedMessage)
   }
 
   // Manual "+" triggers (Work Item D): bypass the LLM entirely, calling the
@@ -366,6 +413,12 @@ export default function ChatPage() {
               <textarea
                 value={editingContent}
                 onChange={(e) => setEditingContent(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    handleEditCancel()
+                  }
+                }}
                 autoFocus
                 rows={Math.min(8, Math.max(2, editingContent.split('\n').length))}
                 className="w-full resize-none bg-transparent text-white placeholder-white/70 focus:outline-none"
@@ -422,15 +475,21 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Hover-revealed icon row: copy on every message, edit on user
-            messages only. Hidden while this bubble is being edited. */}
+        {/* Icon row: copy on every message, edit on user messages only.
+            Hidden while this bubble is being edited. Revealed on hover for
+            mouse users, and via `group-focus-within` for keyboard users --
+            the buttons themselves are focusable (unlike the message text),
+            so tabbing into the row keeps it visible instead of relying on
+            `focus-within` on an unfocusable bubble. `focus:opacity-100` on
+            each button also keeps it visible once it individually has
+            focus, even after tabbing away from the rest of the group. */}
         {!isEditing && (
-          <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
             <button
               type="button"
               onClick={() => handleCopy(msg)}
               aria-label="Copy message"
-              className="flex items-center justify-center w-6 h-6 rounded text-ink-muted hover:bg-border hover:text-ink transition-colors"
+              className="flex items-center justify-center w-6 h-6 rounded text-ink-muted hover:bg-border hover:text-ink focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
             >
               {isCopied ? (
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -448,7 +507,7 @@ export default function ChatPage() {
                 type="button"
                 onClick={() => handleEditStart(msg)}
                 aria-label="Edit message"
-                className="flex items-center justify-center w-6 h-6 rounded text-ink-muted hover:bg-border hover:text-ink transition-colors"
+                className="flex items-center justify-center w-6 h-6 rounded text-ink-muted hover:bg-border hover:text-ink focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -465,7 +524,7 @@ export default function ChatPage() {
   if (isLoadingThread) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-ink-muted">Loading...</div>
+        <LoadingSpinner size="lg" />
       </div>
     )
   }
@@ -493,11 +552,11 @@ export default function ChatPage() {
               onFilesChange={setSelectedFiles}
             />
             {isOffline && (
-              <p className="text-amber-500 mt-2">
+              <p className="text-warning-text mt-2">
                 You&apos;re offline &mdash; messages won&apos;t send until your connection is back.
               </p>
             )}
-            {error && <p className="text-red-500 mt-2">{error}</p>}
+            {error && <p className="text-danger-text mt-2">{error}</p>}
           </div>
         </div>
       </div>
@@ -506,9 +565,15 @@ export default function ChatPage() {
 
   // Existing thread state
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div
+        ref={messagesContainerRef}
+        onScroll={() => {
+          if (hasNewMessages && isNearBottom()) setHasNewMessages(false)
+        }}
+        className="flex-1 overflow-y-auto px-4 py-4"
+      >
         {threadDetail.messages.map(renderMessage)}
 
         {/* Optimistic user bubble, shown immediately on send */}
@@ -517,6 +582,28 @@ export default function ChatPage() {
             <div className="max-w-[70%] rounded-card px-4 py-2 bg-accent text-white">
               <p className="whitespace-pre-wrap">{pendingMessage}</p>
             </div>
+          </div>
+        )}
+
+        {/* Failed send, kept as its own bubble with an inline retry so the
+            failure is tied to the message that didn't go through, instead
+            of the message vanishing and only a generic caption appearing
+            under the composer. */}
+        {failedMessage && !pendingMessage && (
+          <div className="flex flex-col items-end mb-4">
+            <div className="max-w-[70%] rounded-card px-4 py-2 bg-accent/50 text-white">
+              <p className="whitespace-pre-wrap">
+                {failedMessage.content ||
+                  (failedMessage.files.length ? `${failedMessage.files.length} file(s) attached` : '')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRetrySend}
+              className="mt-1 text-xs text-danger-text hover:underline"
+            >
+              Failed to send · Tap to retry
+            </button>
           </div>
         )}
 
@@ -556,6 +643,18 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* "New message" pill, shown when a message arrived while the user was
+          scrolled up reading earlier history. */}
+      {hasNewMessages && (
+        <button
+          type="button"
+          onClick={() => scrollToBottom()}
+          className="absolute left-1/2 -translate-x-1/2 bottom-24 px-3 py-1.5 rounded-full bg-accent text-white text-sm shadow-lg hover:bg-accent-hover transition-colors"
+        >
+          ↓ New message
+        </button>
+      )}
+
       {/* Composer */}
       <div className="border-t border-border p-4">
         <Composer
@@ -570,11 +669,11 @@ export default function ChatPage() {
           onFilesChange={setSelectedFiles}
         />
         {isOffline && (
-          <p className="text-amber-500 mt-2">
+          <p className="text-warning-text mt-2">
             You&apos;re offline &mdash; messages won&apos;t send until your connection is back.
           </p>
         )}
-        {error && <p className="text-red-500 mt-2">{error}</p>}
+        {error && <p className="text-danger-text mt-2">{error}</p>}
       </div>
     </div>
   )
@@ -625,10 +724,24 @@ function Composer({
     }
   }
 
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+
   const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? [])
-    if (picked.length && onFilesChange) {
-      onFilesChange([...(files ?? []), ...picked])
+    const maxBytes = MAX_ATTACHMENT_SIZE_MB * 1024 * 1024
+    const tooLarge = picked.filter((f) => f.size > maxBytes)
+    const accepted = picked.filter((f) => f.size <= maxBytes)
+
+    if (tooLarge.length) {
+      setAttachmentError(
+        `${tooLarge.map((f) => f.name).join(', ')} exceeds the ${MAX_ATTACHMENT_SIZE_MB}MB limit and wasn't attached.`
+      )
+    } else {
+      setAttachmentError(null)
+    }
+
+    if (accepted.length && onFilesChange) {
+      onFilesChange([...(files ?? []), ...accepted])
     }
     // Reset so selecting the same file again still fires onChange.
     e.target.value = ''
@@ -643,6 +756,10 @@ function Composer({
 
   return (
     <div className="flex flex-col gap-2">
+      {attachmentError && (
+        <p className="px-1 text-xs text-danger-text">{attachmentError}</p>
+      )}
+
       {/* Selected file chips, shown above the composer before sending */}
       {files && files.length > 0 && (
         <div className="flex flex-wrap gap-2 px-1">
@@ -699,7 +816,7 @@ function Composer({
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".txt,.md,.pdf,.docx,image/*"
+              accept={ACCEPTED_ATTACHMENT_TYPES}
               onChange={handleFilesSelected}
               className="hidden"
             />
@@ -708,6 +825,7 @@ function Composer({
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
               aria-label="Attach files"
+              title={`Attach ${ACCEPTED_ATTACHMENT_LABEL} (up to ${MAX_ATTACHMENT_SIZE_MB}MB each)`}
               className="flex items-center justify-center w-9 h-9 rounded-full text-ink-muted hover:bg-border hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

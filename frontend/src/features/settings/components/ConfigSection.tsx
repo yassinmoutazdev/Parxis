@@ -99,7 +99,7 @@ export function ConfigSection() {
     return (
       <Card>
         <CardContent>
-          <p className="text-sm text-red-400">Failed to load configuration.</p>
+          <p className="text-sm text-danger-text">Failed to load configuration.</p>
         </CardContent>
       </Card>
     )

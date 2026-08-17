@@ -10,6 +10,7 @@ import Sidebar from './features/chat/Sidebar'
 import { ConnectScreen } from './features/settings/components/ConnectScreen'
 import { getOllamaKeyStatus } from './api/client'
 import * as ApiClient from './api/client'
+import { LoadingSpinner } from './shared/components/LoadingSpinner'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,11 +86,14 @@ function App() {
     return () => window.removeEventListener('ollama-auth-failed', handleAuthFailed)
   }, [])
 
-  // Show loading spinner while checking auth
+  // Show a branded launch screen while checking auth, instead of a bare
+  // unbranded spinner on an otherwise-empty page. Reuses the shared
+  // LoadingSpinner so this stays in sync with its styling everywhere else.
   if (isCheckingAuth) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-cream">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-accent border-t-transparent" />
+      <div className="flex flex-col min-h-screen items-center justify-center gap-4 bg-cream">
+        <h1 className="text-2xl font-serif text-ink">Parxis</h1>
+        <LoadingSpinner size="lg" />
       </div>
     )
   }

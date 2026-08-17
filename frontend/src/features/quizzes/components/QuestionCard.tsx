@@ -27,7 +27,7 @@ export function QuestionCard({
   readOnly = false,
   onAnswer,
 }: QuestionCardProps) {
-  // Sync with parent state - keep in sync with answers from QuizPage
+  // Sync with parent state - keep in sync with answers from QuizRunner
   useEffect(() => {
     // This ensures the component stays in sync with parent state
   }, [userAnswer])
@@ -39,8 +39,8 @@ export function QuestionCard({
         <div className="space-y-3">
           <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
             isCorrect
-              ? 'bg-green-900/30 text-green-400 border border-green-700'
-              : 'bg-red-900/30 text-red-400 border border-red-700'
+              ? 'bg-success-tint text-success-text border border-success-border'
+              : 'bg-danger-tint text-danger-text border border-danger-border'
           }`}>
             {isCorrect ? '✓ Correct' : '✗ Incorrect'}
           </div>

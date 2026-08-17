@@ -18,7 +18,7 @@ export function Button({
   const variants = {
     primary: 'bg-accent text-white hover:bg-accent-hover focus:ring-accent',
     secondary: 'bg-surface text-ink border border-border hover:border-border-strong focus:ring-ink-faint',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+    danger: 'bg-danger text-white hover:bg-danger/90 focus:ring-danger',
     ghost: 'text-ink-muted hover:text-ink hover:bg-ink/5 focus:ring-ink-faint',
   }
 

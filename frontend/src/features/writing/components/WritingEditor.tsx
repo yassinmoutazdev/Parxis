@@ -52,6 +52,8 @@ export default function WritingEditor({
           <span>{wordCount} words</span>
           <span className="mx-2">·</span>
           <span>{charCount} characters</span>
+          <span className="mx-2">·</span>
+          <span className="text-ink-faint">Ctrl+Enter to submit</span>
         </div>
 
         <button

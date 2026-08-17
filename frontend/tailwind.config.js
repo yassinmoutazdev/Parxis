@@ -29,6 +29,24 @@ export default {
           DEFAULT: '#3C3B37',
           strong: '#4A4943',
         },
+        danger: {
+          DEFAULT: '#E5484D',
+          tint: '#3B2426',
+          text: '#F87171',
+          border: '#7A3A3D',
+        },
+        success: {
+          DEFAULT: '#4CAF7D',
+          tint: '#1E332A',
+          text: '#6FCF97',
+          border: '#3A5C4A',
+        },
+        warning: {
+          DEFAULT: '#D8A73D',
+          tint: '#3A331E',
+          text: '#E9C46A',
+          border: '#5C5136',
+        },
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif'],
