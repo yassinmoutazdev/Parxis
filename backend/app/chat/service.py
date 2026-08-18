@@ -323,7 +323,7 @@ class ChatService:
                 raise ValueError(
                     f"Chat message {message_id} not found in thread {thread_id}"
                 )
-            session.query(ChatMessage).filter(
+            truncate_condition = and_(
                 ChatMessage.thread_id == thread_id,  # type: ignore
                 or_(
                     ChatMessage.created_at > anchor.created_at,  # type: ignore
@@ -332,7 +332,25 @@ class ChatService:
                         ChatMessage.id > anchor.id,  # type: ignore
                     ),
                 ),
-            ).delete(synchronize_session=False)
+            )
+
+            message_ids = [
+                row[0]
+                for row in session.query(ChatMessage.id).filter(truncate_condition).all()
+            ]
+
+            # Same FK issue as delete_thread: clear attachments on the
+            # messages being truncated before deleting the messages
+            # themselves, or this raises IntegrityError as soon as one of
+            # them has an attachment.
+            if message_ids:
+                session.query(ChatMessageAttachment).filter(
+                    ChatMessageAttachment.message_id.in_(message_ids)  # type: ignore
+                ).delete(synchronize_session=False)
+
+            session.query(ChatMessage).filter(truncate_condition).delete(
+                synchronize_session=False
+            )
             session.commit()
 
     @classmethod
@@ -349,6 +367,24 @@ class ChatService:
             thread = session.get(ChatThread, thread_id)
             if not thread:
                 raise ValueError(f"Chat thread {thread_id} not found")
+
+            message_ids = [
+                row[0]
+                for row in session.query(ChatMessage.id)
+                .filter(ChatMessage.thread_id == thread_id)  # type: ignore
+                .all()
+            ]
+
+            # ChatMessageAttachment FK-references chat_message.id with no
+            # ON DELETE CASCADE, and PRAGMA foreign_keys=ON is set - so any
+            # attachments on these messages must be cleared first, or the
+            # bulk delete below raises sqlite3.IntegrityError (this was the
+            # actual cause of "delete a thread" 500s once a message in it
+            # had an attachment).
+            if message_ids:
+                session.query(ChatMessageAttachment).filter(
+                    ChatMessageAttachment.message_id.in_(message_ids)  # type: ignore
+                ).delete(synchronize_session=False)
 
             # Delete messages first (cascade would handle this but be explicit)
             session.query(ChatMessage).filter(ChatMessage.thread_id == thread_id).delete()  # type: ignore

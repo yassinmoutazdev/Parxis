@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useThreads, useDeleteThread } from './api/chat'
 import { LoadingSpinner } from '../../shared/components/LoadingSpinner'
 
@@ -16,8 +16,17 @@ export default function Sidebar() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
-  const { threadId: activeThreadIdParam } = useParams<{ threadId?: string }>()
-  const activeThreadId = activeThreadIdParam ? parseInt(activeThreadIdParam, 10) : null
+  // Sidebar is rendered as a sibling of <Routes> in App.tsx (not nested
+  // inside the matched <Route> element), so useParams() here always
+  // returns {} - it only has access to route params within the matched
+  // route's own subtree. That silently broke both the "highlight the
+  // open thread in the list" styling and the "navigate home when you
+  // delete the thread you're currently viewing" behavior below (the
+  // activeThreadId === threadId check was always comparing against
+  // null). useLocation() works anywhere under the Router regardless of
+  // route nesting, so parse the thread id out of the pathname instead.
+  const activeThreadIdMatch = location.pathname.match(/^\/chat\/(\d+)/)
+  const activeThreadId = activeThreadIdMatch ? parseInt(activeThreadIdMatch[1], 10) : null
 
   const { data: threads = [], isLoading } = useThreads()
   const deleteThread = useDeleteThread()

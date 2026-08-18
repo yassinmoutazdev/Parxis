@@ -12,15 +12,20 @@ import pytest
 from app.ingestion.watcher import VaultWatcher
 
 
+@pytest.fixture
+def temp_vault(tmp_path):
+    """Create a temporary vault directory.
+
+    Module-level (not nested in a single test class) so every test class in
+    this file - including TestVaultWatcherDebounceState - can use it.
+    """
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    yield vault
+
+
 class TestVaultWatcher:
     """Tests for VaultWatcher."""
-
-    @pytest.fixture
-    def temp_vault(self, tmp_path):
-        """Create a temporary vault directory."""
-        vault = tmp_path / "vault"
-        vault.mkdir()
-        yield vault
 
     def test_watcher_start_stop(self, temp_vault):
         """Test watcher can start and stop."""

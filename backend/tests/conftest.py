@@ -97,6 +97,37 @@ def test_session(test_engine):
         session.close()
 
 
+@pytest.fixture(scope="function", autouse=True)
+def _isolated_global_db(monkeypatch, tmp_path):
+    """Point the app's global DB engine at a fresh, migrated temp SQLite file.
+
+    Several services (DashboardService, WritingService, ReportService,
+    IngestionService, VaultWatcher) don't accept an injected session - they
+    always open one via the global ``app.db.engine.Session``, which is bound
+    to the real production DB path (``settings.db_path``). Without this
+    fixture, tests either blow up with "no such table" on a fresh clone
+    (``data/praxis.db`` doesn't exist yet) or silently read/write whatever
+    state a previous test happened to leave in that file.
+
+    This is an autouse, function-scoped fixture so every test gets its own
+    clean, already-migrated database via the same code path production uses
+    (``app.db.engine.Session``), without needing to touch each test.
+    """
+    import app.db.engine as db_engine
+
+    db_path = tmp_path / "isolated_test.db"
+    engine = _create_test_engine(db_path)
+    SQLModel.metadata.create_all(engine)
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    monkeypatch.setattr(db_engine, "engine", engine)
+    monkeypatch.setattr(db_engine, "SessionLocal", session_factory)
+
+    yield engine
+
+    engine.dispose()
+
+
 @pytest.fixture(scope="function")
 def override_get_generator():
     """Fixture to override the get_generator FastAPI dependency.

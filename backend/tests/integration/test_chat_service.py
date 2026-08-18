@@ -23,7 +23,7 @@ from app.db.models import (
 
 # Import service after models
 from app.chat.service import ChatService
-from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
+from app.db.models.chat import AttachmentKind, ChatActionType, ChatMessage, ChatRole, ChatThread
 from app.db import engine as db_engine
 
 
@@ -227,3 +227,50 @@ class TestChatService:
         """Test deleting a non-existent thread raises ValueError."""
         with pytest.raises(ValueError, match="Chat thread 999 not found"):
             ChatService.delete_thread(999)
+
+    def test_delete_thread_with_attachment(self, test_engine):
+        """Deleting a thread whose message has an attachment must not
+        raise a foreign-key IntegrityError.
+
+        Regression test: ChatMessageAttachment FK-references
+        chat_message.id with no ON DELETE CASCADE, and PRAGMA
+        foreign_keys=ON is set, so bulk-deleting ChatMessage rows without
+        first clearing their attachments raised sqlite3.IntegrityError -
+        the actual cause of "DELETE /api/chat/threads/{id}" 500s in
+        production once a message in the thread had an attachment.
+        """
+        thread = ChatService.create_thread()
+        message = ChatService.append_message(thread.id, ChatRole.USER, "Test")
+        ChatService.add_attachment(
+            message_id=message.id,
+            filename="notes.txt",
+            mime_type="text/plain",
+            kind=AttachmentKind.TEXT,
+            extracted_text="some extracted text",
+        )
+
+        # Previously raised sqlalchemy.exc.IntegrityError here.
+        ChatService.delete_thread(thread.id)
+
+        with pytest.raises(ValueError, match="Chat thread .* not found"):
+            ChatService.get_thread(thread.id)
+
+    def test_truncate_after_with_attachment(self, test_engine):
+        """Same FK issue as delete_thread, but for the edit-with-regenerate
+        truncation path (ChatService.truncate_after)."""
+        thread = ChatService.create_thread()
+        anchor = ChatService.append_message(thread.id, ChatRole.USER, "First")
+        later = ChatService.append_message(thread.id, ChatRole.ASSISTANT, "Second")
+        ChatService.add_attachment(
+            message_id=later.id,
+            filename="image.png",
+            mime_type="image/png",
+            kind=AttachmentKind.IMAGE,
+            stored_path="/tmp/fake/image.png",
+        )
+
+        # Previously raised sqlalchemy.exc.IntegrityError here.
+        ChatService.truncate_after(thread.id, anchor.id)
+
+        messages = ChatService.list_messages(thread.id)
+        assert [m.id for m in messages] == [anchor.id]

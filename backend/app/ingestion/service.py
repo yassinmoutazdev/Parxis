@@ -131,6 +131,11 @@ class IngestionService:
             "recent_item_texts": recent_items,
         }
 
+        # Defined up front so the except-block's reference to it can't hit
+        # an UnboundLocalError when the LLM call itself raises (i.e. before
+        # validate_output() ever runs and assigns `warnings`).
+        warnings: list[str] = []
+
         for attempt in range(cls.MAX_PARSE_RETRIES + 1):
             try:
                 # Call the generator (sync wrapper)

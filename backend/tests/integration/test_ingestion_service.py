@@ -40,6 +40,31 @@ class FakeGenerator:
             ]
         )
 
+    def generate_sync(self, task, context, output_schema):
+        """Sync counterpart of generate().
+
+        IngestionService calls ollama_adapter.ollama_adapter.generate_sync()
+        directly (not the async generate()), so this is the method that
+        actually needs to be patched onto the mocked adapter for these
+        tests to exercise the real failure/success path.
+        """
+        self.call_count += 1
+
+        if self.should_fail and self.call_count > self.fail_after_retries:
+            raise Exception("Fake generation failure")
+
+        return ParsedNoteOutput(
+            items=[
+                ParsedItem(
+                    item_type="IDIOM",
+                    text="break the ice",
+                    definition="To initiate conversation",
+                    example_sentence="Let me break the ice.",
+                    source_excerpt="Let me break the ice.",
+                )
+            ]
+        )
+
 
 @pytest.fixture
 def temp_note(tmp_path):
@@ -71,12 +96,21 @@ def test_note(temp_note):
 
     yield note_id
 
-    # Cleanup
+    # Cleanup. With generate_sync now actually mocked (see FakeGenerator),
+    # the happy-path test really inserts a LearningItem pointing at this
+    # note via source_note_id. Foreign keys are enforced (PRAGMA
+    # foreign_keys=ON), so it has to be deleted before the Note itself or
+    # this raises an IntegrityError.
     with Session() as session:
+        from app.db.models.learning_item import LearningItem
+
+        session.query(LearningItem).filter(
+            LearningItem.source_note_id == note_id
+        ).delete()
         note = session.query(Note).filter(Note.id == note_id).first()
         if note:
             session.delete(note)
-            session.commit()
+        session.commit()
 
 
 class TestIngestionServiceProcessNote:
@@ -88,7 +122,9 @@ class TestIngestionServiceProcessNote:
         fake_gen = FakeGenerator()
 
         with patch("app.ingestion.service.ollama_adapter.ollama_adapter") as mock_adapter:
-            mock_adapter.generate = fake_gen.generate
+            # IngestionService calls generate_sync(), not generate() - patch
+            # the method that's actually on the call path.
+            mock_adapter.generate_sync = fake_gen.generate_sync
 
             success, unresolved = IngestionService.process_note(test_note)
 
@@ -107,7 +143,8 @@ class TestIngestionServiceProcessNote:
         fake_gen = FakeGenerator(should_fail=True, fail_after_retries=0)
 
         with patch("app.ingestion.service.ollama_adapter.ollama_adapter") as mock_adapter:
-            mock_adapter.generate = fake_gen.generate
+            # Same reasoning as the happy-path test - patch generate_sync().
+            mock_adapter.generate_sync = fake_gen.generate_sync
 
             success, unresolved = IngestionService.process_note(test_note)
 
@@ -130,10 +167,15 @@ class TestIngestionServiceValidation:
             note.status = NoteStatus.PARSING
             session.commit()
 
-        IngestionService._mark_failed(
-            Session().__enter__(),
-            session.query(Note).filter(Note.id == test_note).first(),
-        )
+        # _mark_failed() just mutates the passed-in Note and commits on the
+        # passed-in session - so both need to come from the *same* session.
+        # The previous version fetched `note` from an already-closed
+        # session above and paired it with a brand-new session here; since
+        # `note` was never attached to that new session, the mutation never
+        # got picked up by its commit.
+        with Session() as session:
+            note = session.query(Note).filter(Note.id == test_note).first()
+            IngestionService._mark_failed(session, note)
 
         with Session() as session:
             note = session.query(Note).filter(Note.id == test_note).first()

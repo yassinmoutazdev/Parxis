@@ -145,6 +145,13 @@ class VaultWatcher:
 
         logger.info(f"Handling event for: {path}")
 
+        # Notify the caller-supplied callback (if any) that this path is
+        # being processed. This is what the `event_handler` constructor
+        # argument documents itself as doing, but was previously never
+        # invoked - watchdog events always came straight through this
+        # method and _dispatch_event() was dead code.
+        self._dispatch_event(path)
+
         # Read and hash the file content
         file_path = Path(path)
         if not file_path.exists():

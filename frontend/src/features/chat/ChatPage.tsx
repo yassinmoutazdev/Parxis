@@ -110,6 +110,39 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
 
+  // App.tsx routes both `/` and `/chat/:threadId` to this same <ChatPage />
+  // element, so React Router never remounts it when threadId changes (e.g.
+  // after a delete-and-navigate-to-/). Without this, any quiz/writing
+  // widget, in-progress edit, or error/failed-message banner from the
+  // previous thread stays frozen on screen even though the URL and message
+  // list have already moved on.
+  //
+  // ensureThread() also changes numericThreadId itself - via
+  // navigate(`/chat/${newThread.id}`, { replace: true }) right after
+  // creating a brand-new thread for the first message of a conversation.
+  // That's a legitimate in-flight send (isLoading/pendingMessage are
+  // supposed to still be set at that point), not a "switched to a
+  // different thread" navigation, so it must NOT trigger this reset. The
+  // ref below lets ensureThread mark that one transition to be skipped.
+  const skipNextResetRef = useRef(false)
+
+  useEffect(() => {
+    if (skipNextResetRef.current) {
+      skipNextResetRef.current = false
+      return
+    }
+    setQuizWidget(null)
+    setWritingWidget(null)
+    setEditingMessageId(null)
+    setEditingContent('')
+    setError(null)
+    setFailedMessage(null)
+    setPendingMessage(null)
+    setSelectedFiles([])
+    setCopiedMessageId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numericThreadId])
+
   // Whether there are new messages the user hasn't scrolled down to see yet.
   const [hasNewMessages, setHasNewMessages] = useState(false)
 
@@ -184,6 +217,11 @@ export default function ChatPage() {
   const ensureThread = async (): Promise<number> => {
     if (numericThreadId) return numericThreadId
     const newThread = await createThread.mutateAsync()
+    // This navigation changes numericThreadId (null -> newThread.id) as a
+    // side effect of the send that's already in flight - skip the next
+    // thread-change reset so it doesn't clobber isLoading/pendingMessage
+    // for that same send.
+    skipNextResetRef.current = true
     navigate(`/chat/${newThread.id}`, { replace: true })
     return newThread.id
   }

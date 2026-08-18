@@ -357,16 +357,22 @@ class TestWritingService:
 
     def test_get_recent_prompts(self, test_session):
         """Test getting recent prompts."""
+        from app.db.engine import Session
         from app.writing.service import WritingService
 
-        # Create some prompts
-        for i in range(3):
-            prompt = WritingPrompt(
-                prompt_type=WritingPromptType.MINI,
-                topic=f"Test prompt {i}",
-            )
-            test_session.add(prompt)
-        test_session.commit()
+        # WritingService.get_recent_prompts() opens its own session via the
+        # global app.db.engine.Session (see the isolated-db autouse fixture
+        # in conftest.py), so setup data has to go through that same
+        # session rather than this file's separate `test_session` engine,
+        # or the service simply won't see it.
+        with Session() as session:
+            for i in range(3):
+                prompt = WritingPrompt(
+                    prompt_type=WritingPromptType.MINI,
+                    topic=f"Test prompt {i}",
+                )
+                session.add(prompt)
+            session.commit()
 
         # Get recent prompts
         prompts = WritingService.get_recent_prompts(
@@ -378,20 +384,25 @@ class TestWritingService:
 
     def test_get_prompt(self, test_session):
         """Test getting a prompt by ID."""
+        from app.db.engine import Session
         from app.writing.service import WritingService
 
-        # Create a prompt
-        prompt = WritingPrompt(
-            prompt_type=WritingPromptType.MINI,
-            topic="Test prompt",
-        )
-        test_session.add(prompt)
-        test_session.commit()
-        test_session.refresh(prompt)
+        # Same reasoning as test_get_recent_prompts above: WritingService
+        # reads via the global session, so the prompt needs to be written
+        # through it too.
+        with Session() as session:
+            prompt = WritingPrompt(
+                prompt_type=WritingPromptType.MINI,
+                topic="Test prompt",
+            )
+            session.add(prompt)
+            session.commit()
+            session.refresh(prompt)
+            prompt_id = prompt.id
 
-        retrieved = WritingService.get_prompt(prompt.id)
+        retrieved = WritingService.get_prompt(prompt_id)
         assert retrieved is not None
-        assert retrieved.id == prompt.id
+        assert retrieved.id == prompt_id
 
     def test_get_submission(self, test_session):
         """Test getting a submission by ID."""
