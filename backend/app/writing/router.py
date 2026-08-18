@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.db.models.writing import WritingPromptType
+from app.llm.ollama_adapter import reraise_known_ollama_error
 from app.writing.service import WritingService
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ async def create_mini_prompt() -> WritingPromptResponse:
             used_at=prompt.used_at.isoformat(),
         )
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to create mini prompt: {e}")
         raise HTTPException(status_code=500, detail="Failed to create prompt")
 
@@ -115,6 +117,7 @@ async def create_weekly_prompt() -> WritingPromptResponse:
             used_at=prompt.used_at.isoformat(),
         )
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to create weekly prompt: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate topic")
 
@@ -248,6 +251,7 @@ async def submit_writing(request: SubmitWritingRequest) -> WritingSubmitResponse
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to submit writing: {e}")
         raise HTTPException(status_code=500, detail="Failed to evaluate writing")
 
@@ -301,6 +305,7 @@ async def retry_evaluation(submission_id: int) -> WritingSubmitResponse:
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to retry evaluation: {e}")
         raise HTTPException(status_code=500, detail="Failed to retry evaluation")
 

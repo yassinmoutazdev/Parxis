@@ -33,6 +33,60 @@ class OllamaAuthError(Exception):
         super().__init__(message)
 
 
+class OllamaRateLimitError(Exception):
+    """Raised when Ollama Cloud returns a 429 (rate limited).
+
+    Carries the `Retry-After` value (seconds) when Ollama sends one, so the
+    API layer can tell the learner roughly when to try again instead of a
+    generic failure message.
+    """
+
+    def __init__(
+        self,
+        message: str = "Ollama Cloud rate limit reached",
+        retry_after: int | None = None,
+    ):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+class OllamaModelNotFoundError(Exception):
+    """Raised when Ollama returns 404 for the configured model.
+
+    Distinguishes "the model name is wrong/not available" from other
+    failures, since that's a config problem the learner (or whoever set
+    OLLAMA_MODEL) can actually fix.
+    """
+
+    def __init__(self, model: str, message: str | None = None):
+        self.model = model
+        super().__init__(message or f"Model '{model}' is not available on Ollama Cloud")
+
+
+KNOWN_OLLAMA_ERRORS = (
+    OllamaAuthError,
+    OllamaRateLimitError,
+    OllamaModelNotFoundError,
+    httpx.ConnectError,
+    httpx.TimeoutException,
+)
+
+
+def reraise_known_ollama_error(e: Exception) -> None:
+    """Re-raise recognized Ollama/transport errors so the app-level FastAPI
+    exception handlers (registered in main.py) can turn them into a
+    specific, honest response.
+
+    Callers use this at the top of a broad `except Exception` block, before
+    it gets flattened into a generic 500 -- without this, every route's
+    catch-all would swallow the distinction between "rate limited",
+    "wrong model", "auth failed", and "Ollama unreachable", and the
+    learner would see the same unhelpful message for all of them.
+    """
+    if isinstance(e, KNOWN_OLLAMA_ERRORS):
+        raise e
+
+
 @dataclass
 class ToolCallResult:
     """Result of a tool-calling chat turn.
@@ -103,6 +157,20 @@ class OllamaAdapter:
             return key if key and key.strip() else None
         except Exception:
             return None
+
+    def _require_api_key(self) -> str:
+        """Get the current API key, or fail fast if none is configured.
+
+        Praxis is Ollama Cloud-only (no unauthenticated local-server mode):
+        every generate/evaluate/chat call requires a real key. Failing here
+        -- before any network call -- means a missing key always surfaces
+        as a clean, immediate OllamaAuthError, never as a confusing
+        downstream timeout or a silently-unauthenticated request.
+        """
+        key = self._get_api_key()
+        if not key:
+            raise OllamaAuthError("No Ollama Cloud API key is configured")
+        return key
 
     async def test_auth(self, api_key: str) -> None:
         """Test an API key against Ollama by making a cheap models list call.
@@ -209,10 +277,7 @@ class OllamaAdapter:
             **inf_settings.to_ollama_params(),
         }
 
-        headers: dict[str, str] = {}
-        api_key = self._get_api_key()
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+        headers = {"Authorization": f"Bearer {self._require_api_key()}"}
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             last_error: Exception | None = None
@@ -284,6 +349,18 @@ class OllamaAdapter:
                     # Intercept 401 auth errors and raise OllamaAuthError
                     if e.response.status_code == 401:
                         raise OllamaAuthError("Ollama authentication failed - API key may be invalid or expired")
+
+                    if e.response.status_code == 429:
+                        retry_after_header = e.response.headers.get("Retry-After")
+                        retry_after = (
+                            int(retry_after_header)
+                            if retry_after_header and retry_after_header.isdigit()
+                            else None
+                        )
+                        raise OllamaRateLimitError(retry_after=retry_after)
+
+                    if e.response.status_code == 404:
+                        raise OllamaModelNotFoundError(self.model)
 
                     # Fallback path: some Ollama versions/models reject the
                     # `tools` param outright (400) instead of just ignoring
@@ -404,11 +481,9 @@ class OllamaAdapter:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             last_error: Exception | None = None
 
-            # Build request headers (include API key if set)
-            headers: dict[str, str] = {}
-            api_key = self._get_api_key()
-            if api_key:
-                headers["Authorization"] = f"Bearer {api_key}"
+            # Cloud-only: every call requires a real key, checked up front
+            # so a missing key fails immediately and clearly.
+            headers = {"Authorization": f"Bearer {self._require_api_key()}"}
 
             for attempt in range(self.max_retries + 1):
                 try:
@@ -462,6 +537,19 @@ class OllamaAdapter:
                     # Intercept 401 auth errors and raise OllamaAuthError
                     if e.response.status_code == 401:
                         raise OllamaAuthError("Ollama authentication failed - API key may be invalid or expired")
+
+                    if e.response.status_code == 429:
+                        retry_after_header = e.response.headers.get("Retry-After")
+                        retry_after = (
+                            int(retry_after_header)
+                            if retry_after_header and retry_after_header.isdigit()
+                            else None
+                        )
+                        raise OllamaRateLimitError(retry_after=retry_after)
+
+                    if e.response.status_code == 404:
+                        raise OllamaModelNotFoundError(self.model)
+
                     logger.error(f"HTTP error for task {task}: {e}")
                     raise
 

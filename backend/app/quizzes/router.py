@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.db.models.quiz import QuizMode, QuizScope
+from app.llm.ollama_adapter import reraise_known_ollama_error
 from app.quizzes.service import QuizService
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,7 @@ async def start_quiz(request: StartQuizRequest) -> QuizSessionResponse:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to start quiz: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate quiz")
 
@@ -189,6 +191,7 @@ async def submit_answers(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to grade quiz: {e}")
         raise HTTPException(status_code=500, detail="Failed to grade quiz")
 

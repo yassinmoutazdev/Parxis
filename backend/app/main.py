@@ -4,10 +4,17 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+import httpx
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.llm.ollama_adapter import (
+    OllamaAuthError,
+    OllamaModelNotFoundError,
+    OllamaRateLimitError,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -37,11 +44,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Store backup status in app state
     app.state.backup_status = backup_status
 
-    # Start VaultWatcher as background thread
-    from app.ingestion.watcher import get_vault_watcher
+    # Start VaultWatcher as background thread, using whatever vault path was
+    # actually saved via Settings (ConfigService/DB) -- NOT the .env/default
+    # fallback, which previously meant a saved path silently stopped being
+    # used again the moment the app restarted, until Settings was reopened.
+    from pathlib import Path
 
-    vault_watcher = get_vault_watcher()
-    vault_started = vault_watcher.start()
+    from app.config_service import ConfigService
+    from app.ingestion.watcher import get_vault_watcher, restart_vault_watcher
+
+    saved_vault_path = ConfigService.get("vault_path")
+
+    if saved_vault_path:
+        vault_started = restart_vault_watcher(Path(saved_vault_path))
+        vault_watcher = get_vault_watcher()
+    else:
+        logger.info(
+            "No notes folder configured yet - watcher not started. "
+            "Set one from Settings to begin watching for notes."
+        )
+        vault_watcher = get_vault_watcher()
+        vault_started = False
 
     # Store watcher state in app state for access
     app.state.vault_watcher = vault_watcher
@@ -70,6 +93,82 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(OllamaAuthError)
+async def handle_ollama_auth_error(request: Request, exc: OllamaAuthError) -> JSONResponse:
+    """Turn any auth failure into the shape the frontend's global handler
+    listens for (App.tsx), so it can drop back to the Connect screen from
+    anywhere -- previously this exception was raised but never caught
+    anywhere, so it surfaced as a raw unhandled 500 instead.
+    """
+    return JSONResponse(
+        status_code=401,
+        content={
+            "error": "ollama_auth_failed",
+            "detail": "Your Ollama Cloud API key is missing or was rejected. Reconnect to continue.",
+        },
+    )
+
+
+@app.exception_handler(OllamaRateLimitError)
+async def handle_ollama_rate_limit_error(
+    request: Request, exc: OllamaRateLimitError
+) -> JSONResponse:
+    detail = "You've hit Ollama Cloud's rate limit. Wait a moment and try again."
+    if exc.retry_after:
+        detail = (
+            "You've hit Ollama Cloud's rate limit. "
+            f"Try again in about {exc.retry_after} seconds."
+        )
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": "ollama_rate_limited",
+            "detail": detail,
+            "retry_after": exc.retry_after,
+        },
+    )
+
+
+@app.exception_handler(OllamaModelNotFoundError)
+async def handle_ollama_model_not_found_error(
+    request: Request, exc: OllamaModelNotFoundError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=502,
+        content={
+            "error": "ollama_model_not_found",
+            "detail": (
+                f"The model '{exc.model}' isn't available on Ollama Cloud. "
+                "Check OLLAMA_MODEL."
+            ),
+        },
+    )
+
+
+@app.exception_handler(httpx.ConnectError)
+async def handle_ollama_connect_error(request: Request, exc: httpx.ConnectError) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "ollama_unreachable",
+            "detail": "Couldn't reach Ollama Cloud. Check your internet connection and try again.",
+        },
+    )
+
+
+@app.exception_handler(httpx.TimeoutException)
+async def handle_ollama_timeout_error(
+    request: Request, exc: httpx.TimeoutException
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=504,
+        content={
+            "error": "ollama_timeout",
+            "detail": "Ollama Cloud took too long to respond. Try again.",
+        },
+    )
 
 
 @app.get("/health")

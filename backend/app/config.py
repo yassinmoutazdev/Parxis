@@ -34,9 +34,14 @@ class Settings(BaseSettings):
     backup_retention_daily: int = 14
     backup_retention_monthly: int = 6
 
-    # Ollama settings
-    ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "gemma4:31b"
+    # Ollama Cloud settings (Praxis is Ollama Cloud-only; there is no
+    # unauthenticated local-server mode -- every request requires a real
+    # OLLAMA_API_KEY, validated against this host). Cloud model tags need a
+    # `-cloud` suffix when hit directly via https://ollama.com/api/*
+    # (e.g. "gemma4:31b" locally -> "gemma4:31b-cloud" here) -- without
+    # it, the direct cloud API won't resolve the model.
+    ollama_host: str = "https://ollama.com"
+    ollama_model: str = "gemma4:31b-cloud"
     ollama_api_key: str | None = None  # Optional API key for Ollama Cloud
     ollama_timeout_seconds: int = 120
     ollama_max_retries: int = 1

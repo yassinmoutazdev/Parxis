@@ -7,7 +7,6 @@ Corresponds to ARCHITECTURE Section 12.2 (Runtime-Adjustable Config).
 import logging
 from typing import Any
 
-from app.config import settings as app_settings
 from app.db.engine import Session
 from app.db.models.system import Config
 
@@ -122,13 +121,22 @@ CONFIG_DEFINITIONS: dict[str, dict[str, Any]] = {
     },
     "vault_path": {
         "type": "string",
-        "default": str(app_settings.vault_path),
-        "description": "Path to the Obsidian vault Praxis watches for notes",
+        # Genuinely unset until the learner picks one in Settings -- do NOT
+        # fall back to app_settings.vault_path here, or the UI can never
+        # tell "nothing saved yet" apart from "this happens to be the
+        # default folder name."
+        "default": "",
+        "description": "Path to the Obsidian vault Praxis watches for notes (not set until chosen in Settings)",
     },
     "ollama_api_key": {
         "type": "string",
-        "default": str(app_settings.ollama_api_key),
-        "description": "Ollama Cloud API key (optional - enables cloud models)",
+        # Always "" until a key is validated and saved via Connect. Note:
+        # str(app_settings.ollama_api_key) would previously default to the
+        # literal string "None" when unset (since ollama_api_key is None),
+        # which is truthy -- silently reporting the key as "configured"
+        # with no real key present.
+        "default": "",
+        "description": "Ollama Cloud API key (required -- Praxis is Ollama Cloud-only)",
     },
 }
 

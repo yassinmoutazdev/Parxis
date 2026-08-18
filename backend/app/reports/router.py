@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.db.models.quiz import QuizScope
+from app.llm.ollama_adapter import reraise_known_ollama_error
 from app.quizzes.service import QuizService
 from app.reports.service import ReportService
 from app.writing.service import WritingService
@@ -152,6 +153,7 @@ async def start_weekly_quiz() -> dict:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to start weekly quiz: {e}")
         raise HTTPException(status_code=500, detail="Failed to start weekly quiz")
 
@@ -174,6 +176,7 @@ async def create_weekly_writing_prompt() -> dict:
             "used_at": prompt.used_at.isoformat(),
         }
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to create weekly writing prompt: {e}")
         raise HTTPException(status_code=500, detail="Failed to create writing prompt")
 
@@ -225,6 +228,7 @@ async def submit_weekly_writing(request: dict) -> dict:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to submit weekly writing: {e}")
         raise HTTPException(status_code=500, detail="Failed to evaluate writing")
 
@@ -265,6 +269,7 @@ async def finalize_weekly_report(
         return _report_to_response(report)
 
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to finalize weekly report: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate report")
 

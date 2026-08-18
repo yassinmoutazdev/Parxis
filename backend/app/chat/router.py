@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from app.chat.attachments import process_attachment
 from app.chat.service import ChatService
 from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
+from app.llm.ollama_adapter import reraise_known_ollama_error
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -326,6 +328,7 @@ async def send_message(
     except HTTPException:
         raise
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to send message to thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to send message")
 
@@ -397,6 +400,7 @@ async def edit_message(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to edit message {message_id} in thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to edit message")
 
@@ -604,6 +608,7 @@ async def complete_quiz(thread_id: int, session_id: int) -> ChatMessageResponse:
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to complete quiz for thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to complete quiz")
 
@@ -641,5 +646,6 @@ async def complete_writing(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        reraise_known_ollama_error(e)
         logger.error(f"Failed to complete writing for thread {thread_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to complete writing")
