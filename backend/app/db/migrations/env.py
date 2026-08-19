@@ -6,6 +6,8 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
+from app.config import settings
+
 # Import all SQLModel models to ensure they're registered
 
 # this is the Alembic Config object, which provides
@@ -58,6 +60,14 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # app/main.py and app/db/engine.py both create this directory before
+    # touching the database, but alembic is invoked standalone (by
+    # scripts/run.ps1, before the app ever starts) and goes through neither
+    # of those - so on a fresh clone, where data/ is gitignored and doesn't
+    # exist yet, sqlite3 has nowhere to create the database file and this
+    # step fails outright, every time. Mirror that same mkdir here.
+    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
