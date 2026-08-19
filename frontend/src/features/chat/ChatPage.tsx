@@ -501,11 +501,27 @@ export default function ChatPage() {
                   <span
                     key={att.id}
                     className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/10 text-xs"
+                    title={
+                      att.context_truncated
+                        ? 'Only the first part of this file was used in replies — it was long.'
+                        : undefined
+                    }
                   >
                     <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     {att.filename}
+                    {att.context_truncated && (
+                      <svg
+                        className="w-3 h-3 flex-shrink-0 text-ink-muted"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-label="Only part of this file was used in replies"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m0 3.75h.007M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
                   </span>
                 )
               )}
@@ -558,8 +574,11 @@ export default function ChatPage() {
     )
   }
 
-  // Loading state
-  if (isLoadingThread) {
+  // Loading state. Skipped while a send is in flight (pendingMessage set) -
+  // see the "Existing thread state" comment below for why: showing only a
+  // spinner here for a brand-new thread's first GET was the other half of
+  // the "message doesn't appear right away" gap.
+  if (isLoadingThread && !pendingMessage) {
     return (
       <div className="flex items-center justify-center h-full">
         <LoadingSpinner size="lg" />
@@ -567,8 +586,11 @@ export default function ChatPage() {
     )
   }
 
-  // Empty / new chat state
-  if (!numericThreadId || !threadDetail) {
+  // Empty / new chat state. Same reasoning as above: if a send is already
+  // in flight, fall through to the message-list branch instead of the
+  // welcome screen, so the pending bubble can render immediately rather
+  // than waiting on the thread to exist server-side first.
+  if ((!numericThreadId || !threadDetail) && !pendingMessage) {
     return (
       <div className="flex flex-col h-full">
         <div className="flex-1 flex items-center justify-center">
@@ -602,6 +624,42 @@ export default function ChatPage() {
   }
 
   // Existing thread state
+  //
+  // Two related gaps, both specific to a brand-new thread's first message,
+  // fixed together here:
+  //
+  // 1. "Doesn't show immediately": creating the thread (POST /threads) and
+  //    then loading it (GET /threads/:id, only enabled once the ID exists)
+  //    are both real round-trips that happen *before* this branch would
+  //    normally render at all - the loading-state and empty-state branches
+  //    above used to own that whole window and neither of them rendered
+  //    the pending bubble, so the just-sent message stayed invisible until
+  //    both requests finished. Both branches above now defer to this one
+  //    whenever pendingMessage is set, so the bubble can appear the
+  //    instant handleSend runs.
+  //
+  // 2. "Shows twice": once this branch does take over, the backend commits
+  //    the user message to the DB immediately (see ChatService.
+  //    append_message) - well before it generates the reply. If the GET
+  //    above resolves after that commit but before the slower POST
+  //    /messages call returns, threadDetail.messages already contains the
+  //    real user message while pendingMessage (only cleared once that POST
+  //    resolves) is still showing its own copy - the same message rendered
+  //    twice for as long as the assistant is thinking.
+  //
+  // Both are handled the same way: while a send is in flight, the trailing
+  // not-yet-answered user message from the real list is dropped in favor
+  // of the pending bubble representing it (whether that real list is
+  // empty, as in gap 1, or already has that message, as in gap 2). Once
+  // the send finishes, isLoading/pendingMessage clear together and the
+  // full list - now including the assistant's reply - renders normally.
+  const realMessages = threadDetail?.messages ?? []
+  const trailingMessage = realMessages[realMessages.length - 1]
+  const messagesToRender =
+    isLoading && pendingMessage && trailingMessage?.role === 'USER'
+      ? realMessages.slice(0, -1)
+      : realMessages
+
   return (
     <div className="flex flex-col h-full relative">
       {/* Messages */}
@@ -612,7 +670,7 @@ export default function ChatPage() {
         }}
         className="flex-1 overflow-y-auto px-4 py-4"
       >
-        {threadDetail.messages.map(renderMessage)}
+        {messagesToRender.map(renderMessage)}
 
         {/* Optimistic user bubble, shown immediately on send */}
         {pendingMessage && (

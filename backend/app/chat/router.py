@@ -11,9 +11,15 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.chat.attachments import process_attachment
+from app.chat.attachments import MAX_ATTACHMENT_CONTEXT_CHARS, process_attachment
 from app.chat.service import ChatService
-from app.db.models.chat import ChatActionType, ChatMessage, ChatRole, ChatThread
+from app.db.models.chat import (
+    AttachmentKind,
+    ChatActionType,
+    ChatMessage,
+    ChatRole,
+    ChatThread,
+)
 from app.llm.ollama_adapter import reraise_known_ollama_error
 
 logger = logging.getLogger(__name__)
@@ -37,6 +43,7 @@ class AttachmentResponse(BaseModel):
     filename: str
     kind: str
     mime_type: str
+    context_truncated: bool
 
 
 class ChatMessageResponse(BaseModel):
@@ -127,6 +134,11 @@ def _attachments_response(message_id: int) -> list[AttachmentResponse] | None:
             filename=a.filename,
             kind=a.kind.value,
             mime_type=a.mime_type,
+            context_truncated=(
+                a.kind == AttachmentKind.TEXT
+                and bool(a.extracted_text)
+                and len(a.extracted_text) > MAX_ATTACHMENT_CONTEXT_CHARS
+            ),
         )
         for a in attachments
     ]

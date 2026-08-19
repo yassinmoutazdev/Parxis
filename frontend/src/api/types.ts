@@ -256,6 +256,7 @@ export interface ChatAttachment {
   filename: string
   kind: ChatAttachmentKind
   mime_type: string
+  context_truncated: boolean
 }
 
 export interface ChatThreadDetail extends ChatThread {

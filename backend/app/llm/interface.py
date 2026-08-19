@@ -91,6 +91,7 @@ class TaskType:
     COACH_CHAT_AFTER_QUIZ = "coach_chat_after_quiz"
     COACH_CHAT_AFTER_WRITING = "coach_chat_after_writing"
     COACH_THREAD_TITLE = "coach_thread_title"
+    COACH_CHAT_SUMMARIZE = "coach_chat_summarize"
 
     # All generation tasks (for reference)
     GENERATION_TASKS = frozenset(
@@ -102,6 +103,7 @@ class TaskType:
             COACH_CHAT_AFTER_QUIZ,
             COACH_CHAT_AFTER_WRITING,
             COACH_THREAD_TITLE,
+            COACH_CHAT_SUMMARIZE,
         }
     )
 

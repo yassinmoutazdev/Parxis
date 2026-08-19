@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy import and_, or_
 
-from app.chat.attachments import read_image_base64
+from app.chat.attachments import MAX_ATTACHMENT_CONTEXT_CHARS, read_image_base64
 from app.db.engine import Session
 from app.db.models.chat import (
     AttachmentKind,
@@ -25,13 +25,37 @@ from app.ingestion.service import IngestionService
 from app.llm import ollama_adapter
 from app.llm.interface import TaskType
 from app.llm.prompts import coach as coach_prompts
-from app.llm.schemas import CoachFollowupReply, CoachThreadTitle
+from app.llm.schemas import CoachFollowupReply, CoachHistorySummary, CoachThreadTitle
 from app.llm.tools import COACH_TOOLS
 from app.quizzes.service import QuizService
 from app.writing.service import WritingService
 
 
 logger = logging.getLogger(__name__)
+
+# Rough chars-per-token heuristic for English text. Ollama doesn't expose a
+# tokenizer over the API, so this is a soft, approximate budget -- not an
+# exact count. May undercount non-English text; acceptable for an internal
+# soft budget.
+_CHARS_PER_TOKEN_ESTIMATE = 4
+
+
+def _estimate_tokens(text: str) -> int:
+    """Roughly estimate the token count of a string via a chars-per-token
+    heuristic. Approximate only -- good enough for a soft internal budget.
+    """
+    return max(1, len(text) // _CHARS_PER_TOKEN_ESTIMATE)
+
+
+# Token budget for system prompt + rolling summary + raw (unsummarized)
+# messages combined, for the main chat loop. The configured model has a
+# large nominal context window, but (a) long-context models lose recall
+# reliability well before their hard limit ("lost in the middle"), and
+# (b) every turn re-sends the entire history, so an unbounded history means
+# every subsequent reply pays that cost repeatedly. This is a plain
+# constant, not user-configurable, intended to be tuned later once real
+# usage is observed.
+CHAT_HISTORY_TOKEN_BUDGET = 12_000  # tokens
 
 
 class ChatService:
@@ -473,7 +497,10 @@ class ChatService:
         multimodal chat API.
 
         Args:
-            messages: List of ChatMessage objects
+            messages: List of ChatMessage objects to include -- the caller
+                is responsible for selecting which messages to pass in (e.g.
+                the "raw", not-yet-summarized tail of the thread); this
+                method no longer applies its own count-based cap.
 
         Returns:
             List of {"role": "user"|"assistant", "content": str, "images"?:
@@ -482,7 +509,7 @@ class ChatService:
         """
         role_map = {ChatRole.USER: "user", ChatRole.ASSISTANT: "assistant"}
         history: list[dict[str, Any]] = []
-        for msg in messages[-20:]:  # Last 20 messages
+        for msg in messages:
             mapped_role = role_map.get(msg.role)
             if mapped_role is None:
                 continue
@@ -492,7 +519,13 @@ class ChatService:
 
             for attachment in cls.list_attachments(msg.id) if msg.id else []:
                 if attachment.kind == AttachmentKind.TEXT and attachment.extracted_text:
-                    content += f"\n\n[Attached: {attachment.filename}]\n{attachment.extracted_text}"
+                    text = attachment.extracted_text
+                    if len(text) > MAX_ATTACHMENT_CONTEXT_CHARS:
+                        text = (
+                            text[:MAX_ATTACHMENT_CONTEXT_CHARS]
+                            + "\n[... truncated, file was longer than this ...]"
+                        )
+                    content += f"\n\n[Attached: {attachment.filename}]\n{text}"
                 elif attachment.kind == AttachmentKind.IMAGE and attachment.stored_path:
                     images.append(read_image_base64(attachment.stored_path))
 
@@ -523,9 +556,22 @@ class ChatService:
         thread = cls.get_thread(thread_id)
         messages = cls.list_messages(thread_id)
 
-        # Build system prompt + per-turn chat history for tool-calling
+        # Token-budget-based rolling summary: fold enough of the oldest
+        # unsummarized messages into thread.history_summary (if needed) so
+        # that the raw remainder fits under CHAT_HISTORY_TOKEN_BUDGET, then
+        # build the system prompt + per-turn chat history from just that
+        # raw remainder.
+        summary = await cls._maybe_update_summary(thread, messages)
+        summarized_up_to = thread.summarized_up_to_message_id or 0
+        raw_messages = [m for m in messages if m.id > summarized_up_to]
+
         system_prompt = coach_prompts.COACH_CHAT_SYSTEM_PROMPT
-        history = cls._format_history_for_tools(messages)
+        if summary:
+            system_prompt += (
+                f"\n\nSummary of earlier parts of this conversation:\n{summary}"
+            )
+
+        history = cls._format_history_for_tools(raw_messages)
 
         # Check if this is the first assistant reply (for title suggestion)
         is_first_reply = not any(m.role == ChatRole.ASSISTANT for m in messages)
@@ -594,6 +640,87 @@ class ChatService:
                 role=ChatRole.ASSISTANT,
                 content="I'm sorry, I encountered an error. Please try again.",
             )
+
+    @classmethod
+    async def _maybe_update_summary(
+        cls, thread: ChatThread, messages: list[ChatMessage]
+    ) -> str | None:
+        """Ensure thread.history_summary covers enough of the older history
+        to keep the *raw* (unsummarized) remainder under the token budget.
+
+        Best-effort: on any LLM failure, logs and returns the existing
+        (possibly stale) summary rather than raising -- this must never
+        block the actual chat reply.
+
+        Args:
+            thread: The thread (mutated in place on success, so the
+                caller's copy of summarized_up_to_message_id / history_summary
+                stays in sync with what was just persisted)
+            messages: All messages in the thread, oldest first
+
+        Returns:
+            The current (possibly just-updated) history_summary, or None if
+            the thread has never needed one.
+        """
+        summary = thread.history_summary
+        summarized_up_to = thread.summarized_up_to_message_id or 0
+        unsummarized = [m for m in messages if m.id > summarized_up_to]
+
+        def _tokens_for(msgs: list[ChatMessage]) -> int:
+            text = coach_prompts.COACH_CHAT_SYSTEM_PROMPT + (summary or "")
+            for m in msgs:
+                text += m.content
+                for att in cls.list_attachments(m.id) if m.id else []:
+                    if att.kind == AttachmentKind.TEXT and att.extracted_text:
+                        text += att.extracted_text[:MAX_ATTACHMENT_CONTEXT_CHARS]
+            return _estimate_tokens(text)
+
+        if _tokens_for(unsummarized) <= CHAT_HISTORY_TOKEN_BUDGET:
+            return summary  # nothing to do this turn
+
+        # Fold the oldest unsummarized messages into the summary until the
+        # remainder fits -- always leave at least the single newest message
+        # raw, so there's guaranteed forward progress even if one message
+        # alone (e.g. a huge attachment) exceeds the budget by itself.
+        to_fold: list[ChatMessage] = []
+        remaining = list(unsummarized)
+        while len(remaining) > 1 and _tokens_for(remaining) > CHAT_HISTORY_TOKEN_BUDGET:
+            to_fold.append(remaining.pop(0))
+
+        if not to_fold:
+            # A single message alone exceeds the budget -- nothing safe to
+            # fold without losing all context. Send as-is; can't do better.
+            return summary
+
+        try:
+            result = await ollama_adapter.ollama_adapter.generate(
+                task=TaskType.COACH_CHAT_SUMMARIZE,
+                context={
+                    "previous_summary": summary or "(no summary yet)",
+                    "messages": cls._format_messages(to_fold),
+                },
+                output_schema=CoachHistorySummary,
+            )
+            new_summary = result.summary  # type: ignore[attr-defined]
+        except Exception as e:
+            logger.warning(f"Summarization failed for thread {thread.id}: {e}")
+            return summary
+
+        with Session() as session:
+            t = session.get(ChatThread, thread.id)
+            if t:
+                t.history_summary = new_summary
+                t.summarized_up_to_message_id = to_fold[-1].id
+                session.commit()
+
+        # Keep the caller's in-memory thread object in sync with what was
+        # just persisted, so downstream logic in generate_reply (which
+        # reads thread.summarized_up_to_message_id from this same object)
+        # sees the update without needing a re-fetch.
+        thread.history_summary = new_summary
+        thread.summarized_up_to_message_id = to_fold[-1].id
+
+        return new_summary
 
     @classmethod
     async def _maybe_set_thread_title(

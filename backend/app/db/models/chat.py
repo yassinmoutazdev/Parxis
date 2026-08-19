@@ -32,6 +32,8 @@ class ChatThread(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     last_message_preview: str | None = Field(default=None)
+    history_summary: str | None = Field(default=None)
+    summarized_up_to_message_id: int | None = Field(default=None)
 
 
 class ChatMessage(SQLModel, table=True):

@@ -226,3 +226,9 @@ class CoachThreadTitle(BaseModel):
     """
 
     title: str = Field(description="a 3-6 word chat title")
+
+
+class CoachHistorySummary(BaseModel):
+    """Output schema for the coach_chat_summarize task."""
+
+    summary: str

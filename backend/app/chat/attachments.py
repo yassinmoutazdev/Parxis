@@ -23,6 +23,13 @@ logger = logging.getLogger(__name__)
 MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024  # 10MB per file
 SUPPORTED_DOCUMENT_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
 
+# Separate, much smaller cap on how much of an attachment's extracted text
+# gets folded into the LLM prompt per turn. This does NOT affect what's
+# extracted or stored -- the full extracted_text is always saved to
+# ChatMessageAttachment. Only prompt-build time (ChatService) and the
+# context_truncated flag on AttachmentResponse consult this constant.
+MAX_ATTACHMENT_CONTEXT_CHARS = 4000  # ~1000 tokens
+
 
 def _resolve_kind(file: UploadFile) -> AttachmentKind:
     """Determine the attachment kind for an upload, or reject unsupported types.

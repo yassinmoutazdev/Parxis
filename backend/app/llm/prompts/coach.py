@@ -69,6 +69,41 @@ Generate your response in JSON format:
 
 Return valid JSON only."""
 
+# Prompt for rolling up older chat history into a compact running summary,
+# used when a thread's raw (unsummarized) history would exceed the token
+# budget. Runs as a small, best-effort side call -- see
+# ChatService._maybe_update_summary.
+COACH_SUMMARIZE_PROMPT = """Update the running summary of this coaching conversation so it stays
+compact while still capturing what matters for future replies.
+
+Previous summary:
+{previous_summary}
+
+New messages to fold in:
+{messages}
+
+Write an updated summary that preserves:
+- the learner's stated goals, interests, and recurring difficulties
+- any commitments made (e.g. "I'll practice past tense next")
+- correction/feedback themes already covered, so the coach doesn't repeat
+  the same feedback
+- the general arc of topics discussed
+
+Rules:
+- Combine the previous summary with the new messages into ONE updated
+  summary, not two separate sections.
+- Keep it to a few sentences of plain prose.
+- Do NOT quote the messages verbatim -- compress and paraphrase.
+- If the previous summary was "(no summary yet)", just summarize the new
+  messages on their own.
+
+Generate your response in JSON format:
+{{
+    "summary": "a few sentences of plain prose"
+}}
+
+Return valid JSON only."""
+
 # Prompt for continuing conversation after quiz completion
 COACH_CHAT_AFTER_QUIZ_PROMPT = """The learner just completed a quiz session. Generate ONE comprehensive follow-up message.
 
